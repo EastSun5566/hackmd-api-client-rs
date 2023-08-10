@@ -33,7 +33,7 @@ impl ApiClient {
     }
 
     pub async fn get_me(&self) -> Result<User> {
-    let url = self.base_url.join("me")?;
+    let url = self.base_url.join("/me")?;
     let res = self
         .http_client
         .get(url)
