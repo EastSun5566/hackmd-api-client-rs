@@ -1,8 +1,8 @@
 pub mod types;
 
-use reqwest::{ Client as HttpClient, Url, header };
-use anyhow::{Result, anyhow};
 use crate::types::User;
+use anyhow::{anyhow, Result};
+use reqwest::{header, Client as HttpClient, Url};
 
 const DEFAULT_BASE_URL: &str = "https://api.hackmd.io/v1";
 
@@ -19,9 +19,7 @@ impl ApiClient {
             header::AUTHORIZATION,
             header::HeaderValue::from_str(&format!("Bearer {}", access_token))?,
         );
-        let http_client = HttpClient::builder()
-            .default_headers(headers)
-            .build()?;
+        let http_client = HttpClient::builder().default_headers(headers).build()?;
 
         let base_url: &str = &base_url.unwrap_or(DEFAULT_BASE_URL.to_string());
 
@@ -33,18 +31,14 @@ impl ApiClient {
     }
 
     pub async fn get_me(&self) -> Result<User> {
-    let url = self.base_url.join("/me")?;
-    let res = self
-        .http_client
-        .get(url)
-        .send().await?;
+        let url = self.base_url.join("/me")?;
+        let res = self.http_client.get(url).send().await?;
 
-    if !res.status().is_success() {
-        return Err(anyhow!(res.error_for_status().unwrap_err()))
+        if !res.status().is_success() {
+            return Err(anyhow!(res.error_for_status().unwrap_err()));
+        }
+
+        let user: User = res.json().await?;
+        Ok(user)
     }
-
-    let user: User = res.json().await?;
-    Ok(user)
-}
-
 }
