@@ -3,8 +3,8 @@ use serde::Deserialize;
 
 #[derive(Debug, PartialEq, Eq, Deserialize)]
 enum TeamVisibilityType {
-    PUBLIC,
-    PRIVATE,
+    Public,
+    Private,
 }
 
 // enum NotePublishType {
