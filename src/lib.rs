@@ -13,7 +13,7 @@ pub struct ApiClient {
 }
 
 impl ApiClient {
-    pub fn new(access_token: String, base_url: Option<String>) -> Result<Self> {
+    pub fn new(access_token: &str, base_url: Option<&str>) -> Result<Self> {
         let mut headers = header::HeaderMap::new();
         headers.insert(
             header::AUTHORIZATION,
@@ -21,11 +21,11 @@ impl ApiClient {
         );
         let http_client = HttpClient::builder().default_headers(headers).build()?;
 
-        let base_url: &str = &base_url.unwrap_or(DEFAULT_BASE_URL.to_string());
+        let base_url: &str = &base_url.unwrap_or(DEFAULT_BASE_URL);
 
         Ok(Self {
             http_client,
-            // access_token: access_token.to_string(),
+            // access_token: access_token,
             base_url: Url::parse(base_url)?,
         })
     }
