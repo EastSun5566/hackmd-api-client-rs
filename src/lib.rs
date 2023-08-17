@@ -13,7 +13,7 @@ pub struct ApiClient {
 }
 
 impl ApiClient {
-    pub fn new(access_token: &str, base_url: Option<String>) -> Result<Self> {
+    pub fn new(access_token: String, base_url: Option<String>) -> Result<Self> {
         let mut headers = header::HeaderMap::new();
         headers.insert(
             header::AUTHORIZATION,
