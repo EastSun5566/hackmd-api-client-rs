@@ -2,11 +2,23 @@
 name = "hackmd-api-client-rs"
 version = "0.1.0"
 edition = "2021"
+authors = ["Michael Wang <michael19920327@gmail.com>"]
+description = "HackMD Rust API Client"
+license = "MIT"
+repository = "https://github.com/EastSun5566/hackmd-api-client-rs"
+homepage = "https://github.com/EastSun5566/hackmd-api-client-rs"
+documentation = "https://docs.rs/hackmd-api-client-rs"
+keywords = ["hackmd", "api", "client", "markdown", "collaboration"]
+categories = ["api-bindings", "web-programming::http-client"]
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.81"
-chrono = { version = "0.4.35", default-features = false, features = ["serde"] }
+chrono = { version = "0.4.35", default-features = false, features = ["serde", "std", "clock"] }
 reqwest = { version = "0.12.15", default-features = false, features = ["json"] }
 serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+url = "2.5.0"
+tokio = { version = "1.0", features = ["time", "macros", "rt-multi-thread"] }
