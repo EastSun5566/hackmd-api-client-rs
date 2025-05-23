@@ -20,10 +20,8 @@ You can sign up for an account at [hackmd.io](https://hackmd.io/), and then crea
 
 Add this to your `Cargo.toml`:
 
-```toml
-[dependencies]
-hackmd-api-client-rs = "0.1.0"
-tokio = { version = "1.0", features = ["full"] }
+```sh
+cargo add hackmd-api-client-rs
 ```
 
 ## Quick Start
