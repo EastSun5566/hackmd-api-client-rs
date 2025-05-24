@@ -170,18 +170,18 @@ impl ApiClient {
         F: Fn() -> Fut,
         Fut: future::Future<Output = Result<T>>,
     {
-        let retry_config = match &self.options.retry_options {
+        let retry_options = match &self.options.retry_options {
             Some(config) => config,
             None => return operation().await,
         };
 
         let mut last_error = None;
-        for attempt in 0..=retry_config.max_retries {
+        for attempt in 0..=retry_options.max_retries {
             match operation().await {
                 Ok(result) => return Ok(result),
                 Err(err) => {
-                    if attempt < retry_config.max_retries && self.is_retryable_error(&err) {
-                        let delay = self.exponential_backoff(attempt, retry_config.base_delay);
+                    if attempt < retry_options.max_retries && self.is_retryable_error(&err) {
+                        let delay = self.exponential_backoff(attempt, retry_options.base_delay);
                         tokio::time::sleep(delay).await;
                         last_error = Some(err);
                     } else {

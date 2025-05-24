@@ -65,13 +65,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 You can customize the client behavior with `ApiClientOptions`:
 
 ```rust
-use hackmd_api_client_rs::{ApiClient, ApiClientOptions, RetryConfig};
+use hackmd_api_client_rs::{ApiClient, ApiClientOptions, RetryOptions};
 use std::time::Duration;
 
 let options = ApiClientOptions {
     wrap_response_errors: true, // Convert HTTP errors to custom error types
     timeout: Some(Duration::from_secs(30)), // Request timeout
-    retry_config: Some(RetryConfig {
+    retry_options: Some(RetryOptions {
         max_retries: 3,
         base_delay: Duration::from_millis(100),
     }),
