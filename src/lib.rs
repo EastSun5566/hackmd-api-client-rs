@@ -5,18 +5,18 @@ pub use error::{ApiError, Result};
 pub use types::*;
 
 use crate::error::{
-    HttpResponseError, InternalServerError, MissingRequiredArgument,
-    TooManyRequestsError,
+    HttpResponseError, InternalServerError, MissingRequiredArgument, TooManyRequestsError,
 };
 use reqwest::{header, Client as HttpClient, Response, StatusCode, Url};
-use std::time::Duration;
+use serde_json::Value;
+use std::{future, time};
 
 const DEFAULT_BASE_URL: &str = "https://api.hackmd.io/v1";
 
 #[derive(Clone)]
 pub struct ApiClientOptions {
     pub wrap_response_errors: bool,
-    pub timeout: Option<Duration>,
+    pub timeout: Option<time::Duration>,
     pub retry_config: Option<RetryConfig>,
 }
 
@@ -24,10 +24,10 @@ impl Default for ApiClientOptions {
     fn default() -> Self {
         Self {
             wrap_response_errors: true,
-            timeout: Some(Duration::from_secs(30)),
+            timeout: Some(time::Duration::from_secs(30)),
             retry_config: Some(RetryConfig {
                 max_retries: 3,
-                base_delay: Duration::from_millis(100),
+                base_delay: time::Duration::from_millis(100),
             }),
         }
     }
@@ -36,7 +36,7 @@ impl Default for ApiClientOptions {
 #[derive(Clone)]
 pub struct RetryConfig {
     pub max_retries: u32,
-    pub base_delay: Duration,
+    pub base_delay: time::Duration,
 }
 
 pub struct ApiClient {
@@ -60,11 +60,9 @@ impl ApiClient {
         options: Option<ApiClientOptions>,
     ) -> Result<Self> {
         if access_token.is_empty() {
-            return Err(ApiError::MissingRequiredArgument(
-                MissingRequiredArgument {
-                    message: "Missing access token when creating HackMD client".to_string(),
-                },
-            ));
+            return Err(ApiError::MissingRequiredArgument(MissingRequiredArgument {
+                message: "Missing access token when creating HackMD client".to_string(),
+            }));
         }
 
         let options = options.unwrap_or_default();
@@ -105,9 +103,7 @@ impl ApiClient {
             return if status.is_success() {
                 Ok(response.json().await?)
             } else {
-                Err(ApiError::Reqwest(
-                    response.error_for_status().unwrap_err(),
-                ))
+                Err(ApiError::Reqwest(response.error_for_status().unwrap_err()))
             };
         }
 
@@ -148,13 +144,15 @@ impl ApiClient {
                     reset_after,
                 }))
             }
-            _ if status.is_server_error() => {
-                Err(ApiError::InternalServer(InternalServerError {
-                    message: format!("HackMD internal error ({} {})", status.as_u16(), status_text),
-                    code: status.as_u16(),
-                    status_text,
-                }))
-            }
+            _ if status.is_server_error() => Err(ApiError::InternalServer(InternalServerError {
+                message: format!(
+                    "HackMD internal error ({} {})",
+                    status.as_u16(),
+                    status_text
+                ),
+                code: status.as_u16(),
+                status_text,
+            })),
             _ => Err(ApiError::HttpResponse(HttpResponseError {
                 message: format!(
                     "Received an error response ({} {}) from HackMD",
@@ -170,7 +168,7 @@ impl ApiClient {
     async fn retry_request<F, Fut, T>(&self, operation: F) -> Result<T>
     where
         F: Fn() -> Fut,
-        Fut: std::future::Future<Output = Result<T>>,
+        Fut: future::Future<Output = Result<T>>,
     {
         let retry_config = match &self.options.retry_config {
             Some(config) => config,
@@ -207,9 +205,9 @@ impl ApiClient {
         }
     }
 
-    fn exponential_backoff(&self, retries: u32, base_delay: Duration) -> Duration {
+    fn exponential_backoff(&self, retries: u32, base_delay: time::Duration) -> time::Duration {
         let multiplier = 2_u64.pow(retries);
-        Duration::from_millis(base_delay.as_millis() as u64 * multiplier)
+        time::Duration::from_millis(base_delay.as_millis() as u64 * multiplier)
     }
 
     // User API methods
@@ -268,7 +266,11 @@ impl ApiClient {
         self.update_note(note_id, &payload).await
     }
 
-    pub async fn update_note(&self, note_id: &str, payload: &UpdateNoteOptions) -> Result<SingleNote> {
+    pub async fn update_note(
+        &self,
+        note_id: &str,
+        payload: &UpdateNoteOptions,
+    ) -> Result<SingleNote> {
         self.retry_request(|| async {
             let url = self.base_url.join(&format!("notes/{}", note_id))?;
             let response = self.http_client.patch(url).json(payload).send().await?;
@@ -281,7 +283,7 @@ impl ApiClient {
         self.retry_request(|| async {
             let url = self.base_url.join(&format!("notes/{}", note_id))?;
             let response = self.http_client.delete(url).send().await?;
-            let _: serde_json::Value = self.handle_response(response).await?;
+            let _: Value = self.handle_response(response).await?;
             Ok(())
         })
         .await
@@ -306,7 +308,11 @@ impl ApiClient {
         .await
     }
 
-    pub async fn create_team_note(&self, team_path: &str, payload: &CreateNoteOptions) -> Result<SingleNote> {
+    pub async fn create_team_note(
+        &self,
+        team_path: &str,
+        payload: &CreateNoteOptions,
+    ) -> Result<SingleNote> {
         self.retry_request(|| async {
             let url = self.base_url.join(&format!("teams/{}/notes", team_path))?;
             let response = self.http_client.post(url).json(payload).send().await?;
@@ -337,9 +343,11 @@ impl ApiClient {
         payload: &UpdateNoteOptions,
     ) -> Result<()> {
         self.retry_request(|| async {
-            let url = self.base_url.join(&format!("teams/{}/notes/{}", team_path, note_id))?;
+            let url = self
+                .base_url
+                .join(&format!("teams/{}/notes/{}", team_path, note_id))?;
             let response = self.http_client.patch(url).json(payload).send().await?;
-            let _: serde_json::Value = self.handle_response(response).await?;
+            let _: Value = self.handle_response(response).await?;
             Ok(())
         })
         .await
@@ -347,9 +355,11 @@ impl ApiClient {
 
     pub async fn delete_team_note(&self, team_path: &str, note_id: &str) -> Result<()> {
         self.retry_request(|| async {
-            let url = self.base_url.join(&format!("teams/{}/notes/{}", team_path, note_id))?;
+            let url = self
+                .base_url
+                .join(&format!("teams/{}/notes/{}", team_path, note_id))?;
             let response = self.http_client.delete(url).send().await?;
-            let _: serde_json::Value = self.handle_response(response).await?;
+            let _: Value = self.handle_response(response).await?;
             Ok(())
         })
         .await
@@ -370,7 +380,7 @@ mod tests {
     fn test_api_client_creation_empty_token() {
         let client = ApiClient::new("");
         assert!(client.is_err());
-        
+
         if let Err(ApiError::MissingRequiredArgument(err)) = client {
             assert!(err.message.contains("Missing access token"));
         } else {
@@ -388,10 +398,10 @@ mod tests {
     fn test_api_client_with_options() {
         let options = ApiClientOptions {
             wrap_response_errors: false,
-            timeout: Some(std::time::Duration::from_secs(10)),
+            timeout: Some(time::Duration::from_secs(10)),
             retry_config: None,
         };
-        
+
         let client = ApiClient::with_options("test_token", None, Some(options));
         assert!(client.is_ok());
     }

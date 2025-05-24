@@ -1,4 +1,7 @@
-use std::fmt;
+use reqwest::header;
+use serde_json;
+use std::{error, fmt, result};
+use url;
 
 #[derive(Debug)]
 pub struct HackMDError {
@@ -11,7 +14,7 @@ impl fmt::Display for HackMDError {
     }
 }
 
-impl std::error::Error for HackMDError {}
+impl error::Error for HackMDError {}
 
 #[derive(Debug)]
 pub struct HttpResponseError {
@@ -26,7 +29,7 @@ impl fmt::Display for HttpResponseError {
     }
 }
 
-impl std::error::Error for HttpResponseError {}
+impl error::Error for HttpResponseError {}
 
 #[derive(Debug)]
 pub struct MissingRequiredArgument {
@@ -39,7 +42,7 @@ impl fmt::Display for MissingRequiredArgument {
     }
 }
 
-impl std::error::Error for MissingRequiredArgument {}
+impl error::Error for MissingRequiredArgument {}
 
 #[derive(Debug)]
 pub struct InternalServerError {
@@ -54,7 +57,7 @@ impl fmt::Display for InternalServerError {
     }
 }
 
-impl std::error::Error for InternalServerError {}
+impl error::Error for InternalServerError {}
 
 #[derive(Debug)]
 pub struct TooManyRequestsError {
@@ -76,7 +79,7 @@ impl fmt::Display for TooManyRequestsError {
     }
 }
 
-impl std::error::Error for TooManyRequestsError {}
+impl error::Error for TooManyRequestsError {}
 
 #[derive(Debug)]
 pub enum ApiError {
@@ -87,7 +90,7 @@ pub enum ApiError {
     TooManyRequests(TooManyRequestsError),
     Reqwest(reqwest::Error),
     Url(url::ParseError),
-    Header(reqwest::header::InvalidHeaderValue),
+    Header(header::InvalidHeaderValue),
     Serde(serde_json::Error),
 }
 
@@ -96,7 +99,9 @@ impl fmt::Display for ApiError {
         match self {
             ApiError::HackMD(err) => write!(f, "HackMD error: {}", err),
             ApiError::HttpResponse(err) => write!(f, "HTTP response error: {}", err),
-            ApiError::MissingRequiredArgument(err) => write!(f, "Missing required argument: {}", err),
+            ApiError::MissingRequiredArgument(err) => {
+                write!(f, "Missing required argument: {}", err)
+            }
             ApiError::InternalServer(err) => write!(f, "Internal server error: {}", err),
             ApiError::TooManyRequests(err) => write!(f, "Too many requests: {}", err),
             ApiError::Reqwest(err) => write!(f, "Request error: {}", err),
@@ -107,7 +112,7 @@ impl fmt::Display for ApiError {
     }
 }
 
-impl std::error::Error for ApiError {}
+impl error::Error for ApiError {}
 
 impl From<reqwest::Error> for ApiError {
     fn from(error: reqwest::Error) -> Self {
@@ -121,8 +126,8 @@ impl From<url::ParseError> for ApiError {
     }
 }
 
-impl From<reqwest::header::InvalidHeaderValue> for ApiError {
-    fn from(error: reqwest::header::InvalidHeaderValue) -> Self {
+impl From<header::InvalidHeaderValue> for ApiError {
+    fn from(error: header::InvalidHeaderValue) -> Self {
         ApiError::Header(error)
     }
 }
@@ -133,4 +138,4 @@ impl From<serde_json::Error> for ApiError {
     }
 }
 
-pub type Result<T> = std::result::Result<T, ApiError>;
+pub type Result<T> = result::Result<T, ApiError>;
