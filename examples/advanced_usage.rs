@@ -1,15 +1,18 @@
-use hackmd_api_client_rs::{ApiClient, ApiClientOptions, RetryConfig, CreateNoteOptions, UpdateNoteOptions, NotePermissionRole, CommentPermissionType};
-use std::time::Duration;
+use hackmd_api_client_rs::{
+    ApiClient, ApiClientOptions, CommentPermissionType, CreateNoteOptions, NotePermissionRole,
+    RetryOptions, UpdateNoteOptions,
+};
+use std::{error, time};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn error::Error>> {
     // Example with custom configuration
     let options = ApiClientOptions {
         wrap_response_errors: true,
-        timeout: Some(Duration::from_secs(30)),
-        retry_config: Some(RetryConfig {
+        timeout: Some(time::Duration::from_secs(30)),
+        retry_options: Some(RetryOptions {
             max_retries: 3,
-            base_delay: Duration::from_millis(200),
+            base_delay: time::Duration::from_millis(200),
         }),
     };
 
@@ -25,7 +28,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("📋 Getting user information...");
     match client.get_me().await {
         Ok(user) => {
-            println!("✅ User: {} ({})", user.name, user.email.unwrap_or("no email".to_string()));
+            println!(
+                "✅ User: {} ({})",
+                user.name,
+                user.email.unwrap_or("no email".to_string())
+            );
             println!("   Path: {}", user.user_path);
             println!("   Teams: {}", user.teams.len());
             for team in &user.teams {
@@ -53,7 +60,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let created_note = match client.create_note(&note_options).await {
         Ok(note) => {
-            println!("✅ Created note: {} (ID: {})", note.note.title, note.note.id);
+            println!(
+                "✅ Created note: {} (ID: {})",
+                note.note.title, note.note.id
+            );
             println!("   Short ID: {}", note.note.short_id);
             println!("   Publish Link: {}", note.note.publish_link);
             note
@@ -76,7 +86,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         chrono::Utc::now().timestamp()
     );
 
-    match client.update_note_content(&created_note.note.id, &updated_content).await {
+    match client
+        .update_note_content(&created_note.note.id, &updated_content)
+        .await
+    {
         Ok(_) => println!("✅ Note content updated successfully"),
         Err(e) => eprintln!("❌ Error updating note: {}", e),
     }
@@ -92,7 +105,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         permalink: None,
     };
 
-    match client.update_note(&created_note.note.id, &permission_update).await {
+    match client
+        .update_note(&created_note.note.id, &permission_update)
+        .await
+    {
         Ok(_) => println!("✅ Note permissions updated successfully"),
         Err(e) => eprintln!("❌ Error updating permissions: {}", e),
     }
@@ -142,7 +158,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for team in &teams {
                     println!("   - Team: {} ({})", team.name, team.path);
                     println!("     Description: {}", team.description);
-                    
+
                     // Get team notes
                     match client.get_team_notes(&team.path).await {
                         Ok(team_notes) => {

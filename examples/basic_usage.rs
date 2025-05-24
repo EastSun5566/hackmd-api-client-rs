@@ -3,7 +3,7 @@ use hackmd_api_client_rs::{ApiClient, CreateNoteOptions};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create API client
-    let client = ApiClient::new("your_access_token_here")?;
+    let client: ApiClient = ApiClient::new("your_access_token_here")?;
 
     // Get user information
     match client.get_me().await {

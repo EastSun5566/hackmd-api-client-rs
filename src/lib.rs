@@ -17,7 +17,7 @@ const DEFAULT_BASE_URL: &str = "https://api.hackmd.io/v1";
 pub struct ApiClientOptions {
     pub wrap_response_errors: bool,
     pub timeout: Option<time::Duration>,
-    pub retry_config: Option<RetryConfig>,
+    pub retry_options: Option<RetryOptions>,
 }
 
 impl Default for ApiClientOptions {
@@ -25,7 +25,7 @@ impl Default for ApiClientOptions {
         Self {
             wrap_response_errors: true,
             timeout: Some(time::Duration::from_secs(30)),
-            retry_config: Some(RetryConfig {
+            retry_options: Some(RetryOptions {
                 max_retries: 3,
                 base_delay: time::Duration::from_millis(100),
             }),
@@ -34,7 +34,7 @@ impl Default for ApiClientOptions {
 }
 
 #[derive(Clone)]
-pub struct RetryConfig {
+pub struct RetryOptions {
     pub max_retries: u32,
     pub base_delay: time::Duration,
 }
@@ -170,7 +170,7 @@ impl ApiClient {
         F: Fn() -> Fut,
         Fut: future::Future<Output = Result<T>>,
     {
-        let retry_config = match &self.options.retry_config {
+        let retry_config = match &self.options.retry_options {
             Some(config) => config,
             None => return operation().await,
         };
@@ -399,7 +399,7 @@ mod tests {
         let options = ApiClientOptions {
             wrap_response_errors: false,
             timeout: Some(time::Duration::from_secs(10)),
-            retry_config: None,
+            retry_options: None,
         };
 
         let client = ApiClient::with_options("test_token", None, Some(options));
