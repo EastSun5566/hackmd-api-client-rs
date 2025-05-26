@@ -13,15 +13,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Teams: {}", user.teams.len());
         }
         Err(e) => {
-            eprintln!("Error getting user info: {}", e);
+            eprintln!("Error getting user info: {:?}", e);
         }
     }
 
     // Create a new note
     let note_options = CreateNoteOptions {
-        title: Some("Test Note from Rust".to_string()),
+        title: Some("Test Note from Rust API Client".to_string()),
         content: Some(
-            "# Hello from Rust\n\nThis note was created using the Rust HackMD API client."
+            "# Hello from Rust API Client\n\nThis note was created using the Rust HackMD API client."
                 .to_string(),
         ),
         read_permission: None,
@@ -29,23 +29,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         comment_permission: None,
         permalink: None,
     };
-
     match client.create_note(&note_options).await {
         Ok(note) => {
             println!("Created note: {} (ID: {})", note.note.title, note.note.id);
 
             // Update note content
-            let updated_content = "# Updated from Rust\n\nThis content has been updated!";
+            let updated_content =
+                "# Updated from Rust API client\n\nThis content has been updated!";
             match client
                 .update_note_content(&note.note.id, updated_content)
                 .await
             {
                 Ok(_) => println!("Note content updated successfully"),
-                Err(e) => eprintln!("Error updating note: {}", e),
+                Err(e) => eprintln!("Error updating note: {:?}", e),
+            }
+
+            // Delete the note
+            match client.delete_note(&note.note.id).await {
+                Ok(_) => println!("Note deleted successfully"),
+                Err(e) => eprintln!("Error deleting note: {:?}", e),
             }
         }
         Err(e) => {
-            eprintln!("Error creating note: {}", e);
+            eprintln!("Error creating note: {:?}", e);
         }
     }
 
@@ -58,7 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Err(e) => {
-            eprintln!("Error getting notes: {}", e);
+            eprintln!("Error getting notes: {:?}", e);
         }
     }
 

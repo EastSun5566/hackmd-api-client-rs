@@ -271,11 +271,11 @@ impl ApiClient {
             let url = self.base_url.join(&format!("notes/{}", note_id))?;
             let response = self.http_client.patch(url).json(payload).send().await?;
             if response.status() == StatusCode::ACCEPTED {
-                Ok(())
-            } else {
-                let _: Value = self.handle_response(response).await?;
-                Ok(())
+                return Ok(());
             }
+
+            let _: Value = self.handle_response(response).await?;
+            Ok(())
         })
         .await
     }
@@ -284,6 +284,10 @@ impl ApiClient {
         self.retry_request(|| async {
             let url = self.base_url.join(&format!("notes/{}", note_id))?;
             let response = self.http_client.delete(url).send().await?;
+            if response.status() == StatusCode::NO_CONTENT {
+                return Ok(());
+            }
+
             let _: Value = self.handle_response(response).await?;
             Ok(())
         })
@@ -348,6 +352,10 @@ impl ApiClient {
                 .base_url
                 .join(&format!("teams/{}/notes/{}", team_path, note_id))?;
             let response = self.http_client.patch(url).json(payload).send().await?;
+            if response.status() == StatusCode::ACCEPTED {
+                return Ok(());
+            }
+
             let _: Value = self.handle_response(response).await?;
             Ok(())
         })
@@ -360,6 +368,10 @@ impl ApiClient {
                 .base_url
                 .join(&format!("teams/{}/notes/{}", team_path, note_id))?;
             let response = self.http_client.delete(url).send().await?;
+            if response.status() == StatusCode::NO_CONTENT {
+                return Ok(());
+            }
+
             let _: Value = self.handle_response(response).await?;
             Ok(())
         })

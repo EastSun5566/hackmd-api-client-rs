@@ -6,7 +6,7 @@ use std::{error, time};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
-    // Example with custom configuration
+    // Example with custom options
     let options = ApiClientOptions {
         wrap_response_errors: true,
         timeout: Some(time::Duration::from_secs(30)),
@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             }
         }
         Err(e) => {
-            eprintln!("❌ Error getting user info: {}", e);
+            eprintln!("❌ Error getting user info: {:?}", e);
             return Ok(());
         }
     }
@@ -69,7 +69,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             note
         }
         Err(e) => {
-            eprintln!("❌ Error creating note: {}", e);
+            eprintln!("❌ Error creating note: {:?}", e);
             return Ok(());
         }
     };
@@ -91,7 +91,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         .await
     {
         Ok(_) => println!("✅ Note content updated successfully"),
-        Err(e) => eprintln!("❌ Error updating note: {}", e),
+        Err(e) => eprintln!("❌ Error updating note: {:?}", e),
     }
 
     println!();
@@ -110,7 +110,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         .await
     {
         Ok(_) => println!("✅ Note permissions updated successfully"),
-        Err(e) => eprintln!("❌ Error updating permissions: {}", e),
+        Err(e) => eprintln!("❌ Error updating permissions: {:?}", e),
     }
 
     println!();
@@ -157,7 +157,10 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                 println!("✅ Found {} teams", teams.len());
                 for team in &teams {
                     println!("   - Team: {} ({})", team.name, team.path);
-                    println!("     Description: {}", team.description);
+                    println!(
+                        "     Description: {}",
+                        team.description.as_deref().unwrap_or("")
+                    );
 
                     // Get team notes
                     match client.get_team_notes(&team.path).await {
@@ -167,12 +170,12 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                                 println!("       - {}", note.title);
                             }
                         }
-                        Err(e) => eprintln!("     ❌ Error getting team notes: {}", e),
+                        Err(e) => eprintln!("     ❌ Error getting team notes: {:?}", e),
                     }
                 }
             }
         }
-        Err(e) => eprintln!("❌ Error getting teams: {}", e),
+        Err(e) => eprintln!("❌ Error getting teams: {:?}", e),
     }
 
     println!("\n🎉 Advanced example completed!");
