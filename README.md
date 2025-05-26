@@ -18,9 +18,7 @@ You can sign up for an account at [hackmd.io](https://hackmd.io/), and then crea
 
 ## Installation
 
-Add this to your `Cargo.toml`:
-
-```sh
+```bash
 cargo add hackmd-api-client-rs
 ```
 

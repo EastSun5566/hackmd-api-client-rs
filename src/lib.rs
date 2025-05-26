@@ -11,7 +11,7 @@ use reqwest::{header, Client as HttpClient, Response, StatusCode, Url};
 use serde_json::Value;
 use std::{future, time};
 
-const DEFAULT_BASE_URL: &str = "https://api.hackmd.io/v1";
+const DEFAULT_BASE_URL: &str = "https://api.hackmd.io/v1/";
 
 #[derive(Clone)]
 pub struct ApiClientOptions {
@@ -256,7 +256,7 @@ impl ApiClient {
         .await
     }
 
-    pub async fn update_note_content(&self, note_id: &str, content: &str) -> Result<SingleNote> {
+    pub async fn update_note_content(&self, note_id: &str, content: &str) -> Result<()> {
         let payload = UpdateNoteOptions {
             content: Some(content.to_string()),
             read_permission: None,
@@ -266,15 +266,16 @@ impl ApiClient {
         self.update_note(note_id, &payload).await
     }
 
-    pub async fn update_note(
-        &self,
-        note_id: &str,
-        payload: &UpdateNoteOptions,
-    ) -> Result<SingleNote> {
+    pub async fn update_note(&self, note_id: &str, payload: &UpdateNoteOptions) -> Result<()> {
         self.retry_request(|| async {
             let url = self.base_url.join(&format!("notes/{}", note_id))?;
             let response = self.http_client.patch(url).json(payload).send().await?;
-            self.handle_response(response).await
+            if response.status() == StatusCode::ACCEPTED {
+                Ok(())
+            } else {
+                let _: Value = self.handle_response(response).await?;
+                Ok(())
+            }
         })
         .await
     }

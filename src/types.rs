@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -56,14 +56,16 @@ pub struct CreateNoteOptions {
 #[serde(rename_all = "camelCase")]
 pub struct Team {
     pub id: String,
-    pub owner_id: String,
+    pub owner_id: Option<String>,
     pub name: String,
     pub logo: String,
     pub path: String,
-    pub description: String,
-    pub hard_breaks: bool,
+    pub description: Option<String>,
+    pub hard_breaks: Option<bool>,
     pub visibility: TeamVisibilityType,
-    pub created_at: NaiveDateTime,
+    #[serde(with = "chrono::serde::ts_milliseconds")]
+    pub created_at: DateTime<Utc>,
+    pub upgraded: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -75,6 +77,7 @@ pub struct User {
     pub user_path: String,
     pub photo: String,
     pub teams: Vec<Team>,
+    pub upgraded: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -84,7 +87,6 @@ pub struct SimpleUserProfile {
     pub user_path: String,
     pub photo: String,
     pub biography: Option<String>,
-    pub created_at: NaiveDateTime,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -93,11 +95,14 @@ pub struct Note {
     pub id: String,
     pub title: String,
     pub tags: Vec<String>,
-    pub last_changed_at: String,
-    pub created_at: String,
+    #[serde(with = "chrono::serde::ts_milliseconds")]
+    pub last_changed_at: DateTime<Utc>,
+    #[serde(with = "chrono::serde::ts_milliseconds")]
+    pub created_at: DateTime<Utc>,
     pub last_change_user: Option<SimpleUserProfile>,
     pub publish_type: NotePublishType,
-    pub published_at: Option<String>,
+    #[serde(with = "chrono::serde::ts_milliseconds_option")]
+    pub published_at: Option<DateTime<Utc>>,
     pub user_path: Option<String>,
     pub team_path: Option<String>,
     pub permalink: Option<String>,
