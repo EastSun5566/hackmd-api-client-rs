@@ -1,20 +1,18 @@
 # HackMD Rust API Client
 
-![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
+[![crates.io](https://img.shields.io/crates/v/hackmd-api-client-rs.svg?style=for-the-badge)](https://crates.io/crates/hackmd-api-client-rs)
+[![docs](https://img.shields.io/docsrs/hackmd-api-client-rs?style=for-the-badge)](https://docs.rs/hackmd-api-client-rs)
 
-A Rust client library for the [HackMD API](https://hackmd.io/@docs/HackMD_API_Book).
+> 🦀📝 A Rust client library for the [HackMD API](https://hackmd.io/@docs/HackMD_API_Book).
 
-You can sign up for an account at [hackmd.io](https://hackmd.io/), and then create access tokens for your projects by following the [HackMD API documentation](https://hackmd.io/@hackmd-api/developer-portal).
+You can sign up for an account at [hackmd.io](https://hackmd.io/), and then create access tokens by following the [developer portal](https://hackmd.io/@hackmd-api/developer-portal).
 
 ## Features
 
 - ✅ Complete API coverage (User, Notes, Teams)
 - ✅ Async/await support with `tokio`
-- ✅ Automatic retry with exponential backoff
-- ✅ Rate limiting handling
-- ✅ Comprehensive error handling
-- ✅ Type-safe request/response models
-- ✅ Configurable timeouts and retry policies
+- ✅ Retry mechanism with exponential backoff
+- ✅ Comprehensive error handling & Type-safe request/response
 
 ## Installation
 
@@ -32,7 +30,7 @@ use hackmd_api_client_rs::types::CreateNoteOptions;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create API client
     let client = ApiClient::new(
-        "your_access_token_here",
+        "<YOUR_ACCESS_TOKEN>",
         None, // Use default API endpoint
         Some(ApiClientOptions::default()),
     )?;
@@ -75,7 +73,7 @@ let options = ApiClientOptions {
     }),
 };
 
-let client = ApiClient::new("your_token", None, Some(options))?;
+let client = ApiClient::new("<YOUR_ACCESS_TOKEN>", None, Some(options))?;
 ```
 
 ## API Methods
@@ -128,7 +126,14 @@ Run the basic usage example:
 cargo run --example basic_usage
 ```
 
-Make sure to set your HackMD access token in the example code before running.
+> [!NOTE]
+> Make sure to set your HackMD access token in the example code before running.
+
+advanced usage example:
+
+```bash
+cargo run --example advanced_usage
+```
 
 ## Types
 

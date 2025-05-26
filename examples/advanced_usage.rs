@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     };
 
     let client = ApiClient::with_options(
-        "your_access_token_here",
+        "<YOUR_ACCESS_TOKEN>",
         None, // Use default API endpoint
         Some(options),
     )?;

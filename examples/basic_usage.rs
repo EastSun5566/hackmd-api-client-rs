@@ -3,7 +3,7 @@ use hackmd_api_client_rs::{ApiClient, CreateNoteOptions};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create API client
-    let client: ApiClient = ApiClient::new("your_access_token_here")?;
+    let client: ApiClient = ApiClient::new("<YOUR_ACCESS_TOKEN>")?;
 
     // Get user information
     match client.get_me().await {
@@ -11,6 +11,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("User: {} ({})", user.name, user.email.unwrap_or_default());
             println!("User path: {}", user.user_path);
             println!("Teams: {}", user.teams.len());
+            for team in &user.teams {
+                println!("     - {} ({})", team.name, team.path);
+            }
         }
         Err(e) => {
             eprintln!("Error getting user info: {:?}", e);
