@@ -44,7 +44,7 @@ pub enum NotePermissionRole {
     Guest,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FolderPath {
     pub id: String,
