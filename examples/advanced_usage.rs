@@ -52,10 +52,14 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let note_options = CreateNoteOptions {
         title: Some("Advanced Rust Example".to_string()),
         content: Some("# Advanced HackMD Rust Client Example\n\n## Features\n\n- ✅ Async/await support\n- ✅ Retry mechanism with exponential backoff\n- ✅ Comprehensive error handling\n- ✅ Type-safe API\n\n## Code\n\n```rust\nlet client = ApiClient::new(\"token\")?;\nlet user = client.get_me().await?;\nprintln!(\"Hello, {}!\", user.name);\n```\n\nThis note was created using the Rust HackMD API client! 🦀".to_string()),
+        description: None,
+        tags: None,
         read_permission: Some(NotePermissionRole::SignedIn),
         write_permission: Some(NotePermissionRole::Owner),
         comment_permission: Some(CommentPermissionType::Owners),
+        suggest_edit_permission: None,
         permalink: Some(format!("rust-example-{}", chrono::Utc::now().timestamp())),
+        parent_folder_id: None,
     };
 
     let created_note = match client.create_note(&note_options).await {
@@ -99,10 +103,14 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     // 4. Update note permissions
     println!("🔒 Updating note permissions...");
     let permission_update = UpdateNoteOptions {
+        title: None,
         content: None,
+        description: None,
+        tags: None,
         read_permission: Some(NotePermissionRole::Guest), // Make it publicly readable
         write_permission: Some(NotePermissionRole::SignedIn),
         permalink: None,
+        parent_folder_id: None,
     };
 
     match client
