@@ -124,6 +124,7 @@ pub struct SimpleUserProfile {
 pub struct Note {
     pub id: String,
     pub title: String,
+    #[serde(default)]
     pub description: String,
     pub tags: Vec<String>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
