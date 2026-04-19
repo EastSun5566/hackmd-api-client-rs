@@ -81,6 +81,18 @@ pub struct CreateNoteOptions {
     pub permalink: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_folder_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct NoteImageUploadData {
+    pub link: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct NoteImageUploadResponse {
+    pub data: NoteImageUploadData,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

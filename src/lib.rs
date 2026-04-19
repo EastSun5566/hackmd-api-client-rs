@@ -302,6 +302,25 @@ impl ApiClient {
         .await
     }
 
+    pub async fn upload_note_image(
+        &self,
+        note_id: &str,
+        image_bytes: Vec<u8>,
+        file_name: &str,
+        mime_type: &str,
+    ) -> Result<NoteImageUploadResponse> {
+        self.retry_request(|| async {
+            let url = self.base_url.join(&format!("notes/{}/images", note_id))?;
+            let part = reqwest::multipart::Part::bytes(image_bytes.clone())
+                .file_name(file_name.to_string())
+                .mime_str(mime_type)?;
+            let form = reqwest::multipart::Form::new().part("image", part);
+            let response = self.http_client.post(url).multipart(form).send().await?;
+            self.handle_response(response).await
+        })
+        .await
+    }
+
     // Team API methods
     pub async fn get_teams(&self) -> Result<Vec<Team>> {
         self.retry_request(|| async {
@@ -444,6 +463,7 @@ mod tests {
             suggest_edit_permission: None,
             permalink: None,
             parent_folder_id: None,
+            origin: None,
         };
 
         let json = serde_json::to_string(&options).unwrap();

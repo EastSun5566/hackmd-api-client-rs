@@ -60,6 +60,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         suggest_edit_permission: None,
         permalink: Some(format!("rust-example-{}", chrono::Utc::now().timestamp())),
         parent_folder_id: None,
+        origin: None,
     };
 
     let created_note = match client.create_note(&note_options).await {
