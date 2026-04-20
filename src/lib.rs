@@ -72,10 +72,6 @@ impl ApiClient {
             header::AUTHORIZATION,
             header::HeaderValue::from_str(&format!("Bearer {}", access_token))?,
         );
-        headers.insert(
-            header::CONTENT_TYPE,
-            header::HeaderValue::from_static("application/json"),
-        );
 
         let mut client_builder = HttpClient::builder().default_headers(headers);
 
