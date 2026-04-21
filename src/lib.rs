@@ -301,13 +301,13 @@ impl ApiClient {
     pub async fn upload_note_image(
         &self,
         note_id: &str,
-        image_bytes: Vec<u8>,
+        image_bytes: bytes::Bytes,
         file_name: &str,
         mime_type: &str,
     ) -> Result<NoteImageUploadResponse> {
         self.retry_request(|| async {
             let url = self.base_url.join(&format!("notes/{}/images", note_id))?;
-            let part = reqwest::multipart::Part::bytes(image_bytes.clone())
+            let part = reqwest::multipart::Part::stream(image_bytes.clone())
                 .file_name(file_name.to_string())
                 .mime_str(mime_type)?;
             let form = reqwest::multipart::Form::new().part("image", part);
