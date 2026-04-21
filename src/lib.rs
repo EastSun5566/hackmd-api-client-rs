@@ -72,10 +72,6 @@ impl ApiClient {
             header::AUTHORIZATION,
             header::HeaderValue::from_str(&format!("Bearer {}", access_token))?,
         );
-        headers.insert(
-            header::CONTENT_TYPE,
-            header::HeaderValue::from_static("application/json"),
-        );
 
         let mut client_builder = HttpClient::builder().default_headers(headers);
 
@@ -220,9 +216,13 @@ impl ApiClient {
         .await
     }
 
-    pub async fn get_history(&self) -> Result<Vec<Note>> {
+    pub async fn get_history(&self, limit: Option<u32>) -> Result<Vec<Note>> {
         self.retry_request(|| async {
-            let url = self.base_url.join("history")?;
+            let mut url = self.base_url.join("history")?;
+            if let Some(limit_val) = limit {
+                url.query_pairs_mut()
+                    .append_pair("limit", &limit_val.to_string());
+            }
             let response = self.http_client.get(url).send().await?;
             self.handle_response(response).await
         })
@@ -258,10 +258,14 @@ impl ApiClient {
 
     pub async fn update_note_content(&self, note_id: &str, content: &str) -> Result<()> {
         let payload = UpdateNoteOptions {
+            title: None,
             content: Some(content.to_string()),
+            description: None,
+            tags: None,
             read_permission: None,
             write_permission: None,
             permalink: None,
+            parent_folder_id: None,
         };
         self.update_note(note_id, &payload).await
     }
@@ -290,6 +294,25 @@ impl ApiClient {
 
             let _: Value = self.handle_response(response).await?;
             Ok(())
+        })
+        .await
+    }
+
+    pub async fn upload_note_image(
+        &self,
+        note_id: &str,
+        image_bytes: bytes::Bytes,
+        file_name: &str,
+        mime_type: &str,
+    ) -> Result<NoteImageUploadResponse> {
+        self.retry_request(|| async {
+            let url = self.base_url.join(&format!("notes/{}/images", note_id))?;
+            let part = reqwest::multipart::Part::stream(image_bytes.clone())
+                .file_name(file_name.to_string())
+                .mime_str(mime_type)?;
+            let form = reqwest::multipart::Form::new().part("image", part);
+            let response = self.http_client.post(url).multipart(form).send().await?;
+            self.handle_response(response).await
         })
         .await
     }
@@ -333,10 +356,14 @@ impl ApiClient {
         content: &str,
     ) -> Result<()> {
         let payload = UpdateNoteOptions {
+            title: None,
             content: Some(content.to_string()),
+            description: None,
+            tags: None,
             read_permission: None,
             write_permission: None,
             permalink: None,
+            parent_folder_id: None,
         };
         self.update_team_note(team_path, note_id, &payload).await
     }
@@ -424,10 +451,15 @@ mod tests {
         let options = CreateNoteOptions {
             title: Some("Test Note".to_string()),
             content: Some("# Test Content".to_string()),
+            description: None,
+            tags: None,
             read_permission: Some(NotePermissionRole::Owner),
             write_permission: Some(NotePermissionRole::SignedIn),
             comment_permission: Some(CommentPermissionType::Owners),
+            suggest_edit_permission: None,
             permalink: None,
+            parent_folder_id: None,
+            origin: None,
         };
 
         let json = serde_json::to_string(&options).unwrap();
@@ -438,10 +470,14 @@ mod tests {
     #[test]
     fn test_update_note_options_serialization() {
         let options = UpdateNoteOptions {
+            title: None,
             content: Some("Updated content".to_string()),
+            description: None,
+            tags: None,
             read_permission: None,
             write_permission: Some(NotePermissionRole::Guest),
             permalink: Some("custom-permalink".to_string()),
+            parent_folder_id: None,
         };
 
         let json = serde_json::to_string(&options).unwrap();

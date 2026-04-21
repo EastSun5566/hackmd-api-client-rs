@@ -27,10 +27,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "# Hello from Rust API Client\n\nThis note was created using the Rust HackMD API client."
                 .to_string(),
         ),
+        description: None,
+        tags: None,
         read_permission: None,
         write_permission: None,
         comment_permission: None,
+        suggest_edit_permission: None,
         permalink: None,
+        parent_folder_id: None,
+        origin: None,
     };
     match client.create_note(&note_options).await {
         Ok(note) => {

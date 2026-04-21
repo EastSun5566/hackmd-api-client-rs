@@ -29,10 +29,33 @@ pub enum CommentPermissionType {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
+pub enum SuggestEditPermissionType {
+    Disabled,
+    Forbidden,
+    Owners,
+    SignedInUsers,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum NotePermissionRole {
     Owner,
     SignedIn,
     Guest,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderPath {
+    pub id: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<String>,
+    pub client_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -43,25 +66,44 @@ pub struct CreateNoteOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub read_permission: Option<NotePermissionRole>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub write_permission: Option<NotePermissionRole>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment_permission: Option<CommentPermissionType>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggest_edit_permission: Option<SuggestEditPermissionType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub permalink: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_folder_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct NoteImageUploadData {
+    pub link: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct NoteImageUploadResponse {
+    pub data: NoteImageUploadData,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Team {
     pub id: String,
-    pub owner_id: Option<String>,
+    pub owner_id: String,
     pub name: String,
     pub logo: String,
     pub path: String,
     pub description: Option<String>,
-    pub hard_breaks: Option<bool>,
     pub visibility: TeamVisibilityType,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub created_at: DateTime<Utc>,
@@ -94,11 +136,17 @@ pub struct SimpleUserProfile {
 pub struct Note {
     pub id: String,
     pub title: String,
+    #[serde(default)]
+    pub description: String,
     pub tags: Vec<String>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub last_changed_at: DateTime<Utc>,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub created_at: DateTime<Utc>,
+    #[serde(with = "chrono::serde::ts_milliseconds_option")]
+    pub title_updated_at: Option<DateTime<Utc>>,
+    #[serde(with = "chrono::serde::ts_milliseconds_option")]
+    pub tags_updated_at: Option<DateTime<Utc>>,
     pub last_change_user: Option<SimpleUserProfile>,
     pub publish_type: NotePublishType,
     #[serde(with = "chrono::serde::ts_milliseconds_option")]
@@ -108,6 +156,8 @@ pub struct Note {
     pub permalink: Option<String>,
     pub short_id: String,
     pub publish_link: String,
+    #[serde(default)]
+    pub folder_paths: Vec<FolderPath>,
     pub read_permission: NotePermissionRole,
     pub write_permission: NotePermissionRole,
 }
@@ -124,11 +174,19 @@ pub struct SingleNote {
 #[serde(rename_all = "camelCase")]
 pub struct UpdateNoteOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_permission: Option<NotePermissionRole>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub write_permission: Option<NotePermissionRole>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub permalink: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_folder_id: Option<String>,
 }
