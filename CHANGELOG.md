@@ -3,6 +3,12 @@
 <!-- markdownlint-disable MD024 -->
 
 All notable changes to this project will be documented in this file.
+## [0.3.0] - 2026-04-27
+
+### ⚙️ Miscellaneous Tasks
+
+- Add CI and release workflows
+- Update ci and release workflows
 
 ## [Unreleased]
 
