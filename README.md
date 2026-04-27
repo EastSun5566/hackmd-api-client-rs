@@ -20,6 +20,12 @@ You can sign up for an account at [hackmd.io](https://hackmd.io/), and then crea
 cargo add hackmd-api-client-rs
 ```
 
+Set `HACKMD_ACCESS_TOKEN` before running the examples or your own binaries:
+
+```bash
+export HACKMD_ACCESS_TOKEN=<YOUR_ACCESS_TOKEN>
+```
+
 ## Quick Start
 
 ```rust
@@ -27,29 +33,21 @@ use hackmd_api_client_rs::{ApiClient, CreateNoteOptions};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create API client
-    let client = ApiClient::new("<YOUR_ACCESS_TOKEN>")?;
+    let access_token = std::env::var("HACKMD_ACCESS_TOKEN")?;
+    let client = ApiClient::new(&access_token)?;
 
-    // Get user information
     let user = client.get_me().await?;
     println!("User: {} ({})", user.name, user.email.unwrap_or_default());
 
-    // Create a new note
-    let note_options = CreateNoteOptions {
-        title: Some("My First Note".to_string()),
-        content: Some("# Hello World\n\nThis is my first note!".to_string()),
-        tags: Some(vec!["rust".to_string()]),
-        read_permission: None,
-        write_permission: None,
-        comment_permission: None,
-        suggest_edit_permission: None,
-        description: None,
-        permalink: None,
-        parent_folder_id: None,
-        origin: None,
-    };
+    let note = client
+        .create_note(&CreateNoteOptions {
+            title: Some("My First Note".to_string()),
+            content: Some("# Hello World\n\nThis is my first note!".to_string()),
+            tags: Some(vec!["rust".to_string()]),
+            ..Default::default()
+        })
+        .await?;
 
-    let note = client.create_note(&note_options).await?;
     println!("Created note: {} (ID: {})", note.note.title, note.note.id);
 
     Ok(())
@@ -73,7 +71,15 @@ let options = ApiClientOptions {
     }),
 };
 
-let client = ApiClient::with_options("<YOUR_ACCESS_TOKEN>", None, Some(options))?;
+let access_token = std::env::var("HACKMD_ACCESS_TOKEN")?;
+let client = ApiClient::with_options(&access_token, None, Some(options))?;
+```
+
+Use `with_base_url()` when targeting a self-hosted HackMD deployment. A trailing slash is optional:
+
+```rust
+let access_token = std::env::var("HACKMD_ACCESS_TOKEN")?;
+let client = ApiClient::with_base_url(&access_token, "https://your-hackmd.example/api/v1")?;
 ```
 
 ## API Methods
@@ -109,26 +115,27 @@ use hackmd_api_client_rs::error::ApiError;
 match client.get_me().await {
     Ok(user) => println!("User: {}", user.name),
     Err(ApiError::TooManyRequests(err)) => {
-        println!("Rate limited: {}/{} requests remaining",
-                err.user_remaining, err.user_limit);
-    },
+        println!(
+            "Rate limited: {}/{} requests remaining",
+            err.user_remaining, err.user_limit
+        );
+    }
     Err(ApiError::InternalServer(err)) => {
         println!("Server error: {}", err.message);
-    },
+    }
     Err(err) => println!("Other error: {}", err),
 }
 ```
 
 ## Examples
 
+The examples read `HACKMD_ACCESS_TOKEN` from the environment. A `.env.example` template is included if you prefer to keep a local placeholder file.
+
 Run the basic usage example:
 
 ```bash
 cargo run --example basic_usage
 ```
-
-> [!NOTE]
-> Make sure to set your HackMD access token in the example code before running.
 
 Advanced usage example:
 
@@ -155,6 +162,11 @@ All API types are available in the `types` module:
 - `SuggestEditPermissionType` - `disabled` | `forbidden` | `owners` | `signed_in_users`
 - `TeamVisibilityType` - `public` | `private`
 
-## License
+## Release
 
-MIT License
+```bash
+just preview X.Y.Z
+just prep X.Y.Z
+just commit X.Y.Z
+just push
+```

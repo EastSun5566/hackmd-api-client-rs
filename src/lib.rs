@@ -25,10 +25,7 @@ impl Default for ApiClientOptions {
         Self {
             wrap_response_errors: true,
             timeout: Some(time::Duration::from_secs(30)),
-            retry_options: Some(RetryOptions {
-                max_retries: 3,
-                base_delay: time::Duration::from_millis(100),
-            }),
+            retry_options: Some(RetryOptions::default()),
         }
     }
 }
@@ -39,6 +36,15 @@ pub struct RetryOptions {
     pub base_delay: time::Duration,
 }
 
+impl Default for RetryOptions {
+    fn default() -> Self {
+        Self {
+            max_retries: 3,
+            base_delay: time::Duration::from_millis(100),
+        }
+    }
+}
+
 pub struct ApiClient {
     http_client: HttpClient,
     base_url: Url,
@@ -46,6 +52,57 @@ pub struct ApiClient {
 }
 
 impl ApiClient {
+    fn missing_required_argument(message: impl Into<String>) -> ApiError {
+        ApiError::MissingRequiredArgument(MissingRequiredArgument {
+            message: message.into(),
+        })
+    }
+
+    fn require_non_empty(value_name: &str, value: &str) -> Result<()> {
+        if value.trim().is_empty() {
+            return Err(Self::missing_required_argument(format!(
+                "Missing {value_name} when calling HackMD API"
+            )));
+        }
+
+        Ok(())
+    }
+
+    fn normalized_base_url(base_url: &str) -> String {
+        if base_url.ends_with('/') {
+            base_url.to_string()
+        } else {
+            format!("{base_url}/")
+        }
+    }
+
+    fn note_url(&self, note_id: &str) -> Result<Url> {
+        Self::require_non_empty("note_id", note_id)?;
+        Ok(self.base_url.join(&format!("notes/{note_id}"))?)
+    }
+
+    fn note_image_url(&self, note_id: &str) -> Result<Url> {
+        Self::require_non_empty("note_id", note_id)?;
+        Ok(self.base_url.join(&format!("notes/{note_id}/images"))?)
+    }
+
+    fn team_notes_url(&self, team_path: &str) -> Result<Url> {
+        Self::require_non_empty("team_path", team_path)?;
+        Ok(self.base_url.join(&format!("teams/{team_path}/notes"))?)
+    }
+
+    fn team_note_url(&self, team_path: &str, note_id: &str) -> Result<Url> {
+        Self::require_non_empty("team_path", team_path)?;
+        Self::require_non_empty("note_id", note_id)?;
+        Ok(self
+            .base_url
+            .join(&format!("teams/{team_path}/notes/{note_id}"))?)
+    }
+
+    fn is_success_status(status: StatusCode) -> bool {
+        status.is_success()
+    }
+
     pub fn new(access_token: &str) -> Result<Self> {
         Self::with_options(access_token, None, None)
     }
@@ -59,10 +116,10 @@ impl ApiClient {
         base_url: Option<&str>,
         options: Option<ApiClientOptions>,
     ) -> Result<Self> {
-        if access_token.is_empty() {
-            return Err(ApiError::MissingRequiredArgument(MissingRequiredArgument {
-                message: "Missing access token when creating HackMD client".to_string(),
-            }));
+        if access_token.trim().is_empty() {
+            return Err(Self::missing_required_argument(
+                "Missing access token when creating HackMD client",
+            ));
         }
 
         let options = options.unwrap_or_default();
@@ -80,7 +137,9 @@ impl ApiClient {
         }
 
         let http_client = client_builder.build()?;
-        let base_url = Url::parse(base_url.unwrap_or(DEFAULT_BASE_URL))?;
+        let base_url = Url::parse(&Self::normalized_base_url(
+            base_url.unwrap_or(DEFAULT_BASE_URL),
+        ))?;
 
         Ok(Self {
             http_client,
@@ -161,6 +220,14 @@ impl ApiClient {
         }
     }
 
+    async fn handle_empty_response(&self, response: Response) -> Result<()> {
+        if Self::is_success_status(response.status()) {
+            return Ok(());
+        }
+
+        self.handle_response::<Value>(response).await.map(|_| ())
+    }
+
     async fn retry_request<F, Fut, T>(&self, operation: F) -> Result<T>
     where
         F: Fn() -> Fut,
@@ -192,7 +259,7 @@ impl ApiClient {
 
     fn is_retryable_error(&self, error: &ApiError) -> bool {
         match error {
-            ApiError::TooManyRequests(err) => err.user_remaining > 0,
+            ApiError::TooManyRequests(_) => true,
             ApiError::InternalServer(_) => true,
             ApiError::Reqwest(req_err) => {
                 req_err.is_timeout() || req_err.is_connect() || req_err.is_request()
@@ -240,7 +307,7 @@ impl ApiClient {
 
     pub async fn get_note(&self, note_id: &str) -> Result<SingleNote> {
         self.retry_request(|| async {
-            let url = self.base_url.join(&format!("notes/{}", note_id))?;
+            let url = self.note_url(note_id)?;
             let response = self.http_client.get(url).send().await?;
             self.handle_response(response).await
         })
@@ -258,42 +325,26 @@ impl ApiClient {
 
     pub async fn update_note_content(&self, note_id: &str, content: &str) -> Result<()> {
         let payload = UpdateNoteOptions {
-            title: None,
             content: Some(content.to_string()),
-            description: None,
-            tags: None,
-            read_permission: None,
-            write_permission: None,
-            permalink: None,
-            parent_folder_id: None,
+            ..Default::default()
         };
         self.update_note(note_id, &payload).await
     }
 
     pub async fn update_note(&self, note_id: &str, payload: &UpdateNoteOptions) -> Result<()> {
         self.retry_request(|| async {
-            let url = self.base_url.join(&format!("notes/{}", note_id))?;
+            let url = self.note_url(note_id)?;
             let response = self.http_client.patch(url).json(payload).send().await?;
-            if response.status() == StatusCode::ACCEPTED {
-                return Ok(());
-            }
-
-            let _: Value = self.handle_response(response).await?;
-            Ok(())
+            self.handle_empty_response(response).await
         })
         .await
     }
 
     pub async fn delete_note(&self, note_id: &str) -> Result<()> {
         self.retry_request(|| async {
-            let url = self.base_url.join(&format!("notes/{}", note_id))?;
+            let url = self.note_url(note_id)?;
             let response = self.http_client.delete(url).send().await?;
-            if response.status() == StatusCode::NO_CONTENT {
-                return Ok(());
-            }
-
-            let _: Value = self.handle_response(response).await?;
-            Ok(())
+            self.handle_empty_response(response).await
         })
         .await
     }
@@ -306,7 +357,7 @@ impl ApiClient {
         mime_type: &str,
     ) -> Result<NoteImageUploadResponse> {
         self.retry_request(|| async {
-            let url = self.base_url.join(&format!("notes/{}/images", note_id))?;
+            let url = self.note_image_url(note_id)?;
             let part = reqwest::multipart::Part::stream(image_bytes.clone())
                 .file_name(file_name.to_string())
                 .mime_str(mime_type)?;
@@ -329,7 +380,7 @@ impl ApiClient {
 
     pub async fn get_team_notes(&self, team_path: &str) -> Result<Vec<Note>> {
         self.retry_request(|| async {
-            let url = self.base_url.join(&format!("teams/{}/notes", team_path))?;
+            let url = self.team_notes_url(team_path)?;
             let response = self.http_client.get(url).send().await?;
             self.handle_response(response).await
         })
@@ -342,7 +393,7 @@ impl ApiClient {
         payload: &CreateNoteOptions,
     ) -> Result<SingleNote> {
         self.retry_request(|| async {
-            let url = self.base_url.join(&format!("teams/{}/notes", team_path))?;
+            let url = self.team_notes_url(team_path)?;
             let response = self.http_client.post(url).json(payload).send().await?;
             self.handle_response(response).await
         })
@@ -356,14 +407,8 @@ impl ApiClient {
         content: &str,
     ) -> Result<()> {
         let payload = UpdateNoteOptions {
-            title: None,
             content: Some(content.to_string()),
-            description: None,
-            tags: None,
-            read_permission: None,
-            write_permission: None,
-            permalink: None,
-            parent_folder_id: None,
+            ..Default::default()
         };
         self.update_team_note(team_path, note_id, &payload).await
     }
@@ -375,32 +420,18 @@ impl ApiClient {
         payload: &UpdateNoteOptions,
     ) -> Result<()> {
         self.retry_request(|| async {
-            let url = self
-                .base_url
-                .join(&format!("teams/{}/notes/{}", team_path, note_id))?;
+            let url = self.team_note_url(team_path, note_id)?;
             let response = self.http_client.patch(url).json(payload).send().await?;
-            if response.status() == StatusCode::ACCEPTED {
-                return Ok(());
-            }
-
-            let _: Value = self.handle_response(response).await?;
-            Ok(())
+            self.handle_empty_response(response).await
         })
         .await
     }
 
     pub async fn delete_team_note(&self, team_path: &str, note_id: &str) -> Result<()> {
         self.retry_request(|| async {
-            let url = self
-                .base_url
-                .join(&format!("teams/{}/notes/{}", team_path, note_id))?;
+            let url = self.team_note_url(team_path, note_id)?;
             let response = self.http_client.delete(url).send().await?;
-            if response.status() == StatusCode::NO_CONTENT {
-                return Ok(());
-            }
-
-            let _: Value = self.handle_response(response).await?;
-            Ok(())
+            self.handle_empty_response(response).await
         })
         .await
     }
@@ -418,7 +449,7 @@ mod tests {
 
     #[test]
     fn test_api_client_creation_empty_token() {
-        let client = ApiClient::new("");
+        let client = ApiClient::new("   ");
         assert!(client.is_err());
 
         if let Err(ApiError::MissingRequiredArgument(err)) = client {
@@ -430,8 +461,10 @@ mod tests {
 
     #[test]
     fn test_api_client_with_base_url() {
-        let client = ApiClient::with_base_url("test_token", "https://api.example.com/v1");
-        assert!(client.is_ok());
+        let client = ApiClient::with_base_url("test_token", "https://api.example.com/v1")
+            .expect("client should be created");
+
+        assert_eq!(client.base_url.as_str(), "https://api.example.com/v1/");
     }
 
     #[test]
@@ -451,15 +484,10 @@ mod tests {
         let options = CreateNoteOptions {
             title: Some("Test Note".to_string()),
             content: Some("# Test Content".to_string()),
-            description: None,
-            tags: None,
             read_permission: Some(NotePermissionRole::Owner),
             write_permission: Some(NotePermissionRole::SignedIn),
             comment_permission: Some(CommentPermissionType::Owners),
-            suggest_edit_permission: None,
-            permalink: None,
-            parent_folder_id: None,
-            origin: None,
+            ..Default::default()
         };
 
         let json = serde_json::to_string(&options).unwrap();
@@ -470,14 +498,10 @@ mod tests {
     #[test]
     fn test_update_note_options_serialization() {
         let options = UpdateNoteOptions {
-            title: None,
             content: Some("Updated content".to_string()),
-            description: None,
-            tags: None,
-            read_permission: None,
             write_permission: Some(NotePermissionRole::Guest),
             permalink: Some("custom-permalink".to_string()),
-            parent_folder_id: None,
+            ..Default::default()
         };
 
         let json = serde_json::to_string(&options).unwrap();
@@ -486,5 +510,77 @@ mod tests {
         assert!(json.contains("custom-permalink"));
         // Should not contain null values for None fields
         assert!(!json.contains("readPermission"));
+    }
+
+    #[test]
+    fn test_note_url_requires_note_id() {
+        let client = ApiClient::new("test_token").unwrap();
+        let error = client.note_url("   ").unwrap_err();
+
+        assert!(matches!(error, ApiError::MissingRequiredArgument(_)));
+    }
+
+    #[test]
+    fn test_team_note_url_requires_team_path() {
+        let client = ApiClient::new("test_token").unwrap();
+        let error = client.team_note_url("", "note-123").unwrap_err();
+
+        assert!(matches!(error, ApiError::MissingRequiredArgument(_)));
+    }
+
+    #[test]
+    fn test_note_and_team_urls_are_composed_from_valid_identifiers() {
+        let client = ApiClient::new("test_token").unwrap();
+
+        assert_eq!(
+            client.note_url("note-123").unwrap().as_str(),
+            "https://api.hackmd.io/v1/notes/note-123"
+        );
+        assert_eq!(
+            client
+                .team_note_url("platform-team", "note-123")
+                .unwrap()
+                .as_str(),
+            "https://api.hackmd.io/v1/teams/platform-team/notes/note-123"
+        );
+    }
+
+    #[test]
+    fn test_rate_limit_errors_are_retryable() {
+        let client = ApiClient::new("test_token").unwrap();
+        let error = ApiError::TooManyRequests(TooManyRequestsError {
+            message: "Too many requests".to_string(),
+            code: 429,
+            status_text: "Too Many Requests".to_string(),
+            user_limit: 60,
+            user_remaining: 0,
+            reset_after: Some(1),
+        });
+
+        assert!(client.is_retryable_error(&error));
+    }
+
+    #[test]
+    fn test_success_status_accepts_all_2xx_codes() {
+        assert!(ApiClient::is_success_status(StatusCode::OK));
+        assert!(ApiClient::is_success_status(StatusCode::ACCEPTED));
+        assert!(ApiClient::is_success_status(StatusCode::NO_CONTENT));
+        assert!(!ApiClient::is_success_status(StatusCode::BAD_REQUEST));
+    }
+
+    #[test]
+    fn test_exponential_backoff_doubles_between_attempts() {
+        let client = ApiClient::new("test_token").unwrap();
+        let base_delay = time::Duration::from_millis(100);
+
+        assert_eq!(client.exponential_backoff(0, base_delay), base_delay);
+        assert_eq!(
+            client.exponential_backoff(1, base_delay),
+            time::Duration::from_millis(200)
+        );
+        assert_eq!(
+            client.exponential_backoff(2, base_delay),
+            time::Duration::from_millis(400)
+        );
     }
 }

@@ -1,7 +1,5 @@
 use reqwest::header;
-use serde_json;
 use std::{error, fmt, result};
-use url;
 
 #[derive(Debug)]
 pub struct HackMDError {
