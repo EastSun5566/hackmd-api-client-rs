@@ -63,8 +63,8 @@ use hackmd_api_client_rs::{ApiClient, ApiClientOptions, RetryOptions};
 use std::time::Duration;
 
 let options = ApiClientOptions {
-    wrap_response_errors: true, // Convert HTTP errors to custom error types
-    timeout: Some(Duration::from_secs(30)), // Request timeout
+    wrap_response_errors: true,
+    timeout: Some(Duration::from_secs(30)),
     retry_options: Some(RetryOptions {
         max_retries: 3,
         base_delay: Duration::from_millis(100),
@@ -185,7 +185,7 @@ All API types are available in the `types` module:
 - `CreateNoteOptions` - Options for creating notes (title, content, description, tags, permissions, `parent_folder_id`, `origin`, `note_features`, etc.)
 - `UpdateNoteOptions` - Options for updating notes (title, content, description, tags, permissions, `parent_folder_id`)
 - `CreateFolderOptions` - Options for creating folders (`name`, `description`, `icon`, `color`, `parent_folder_id`). `icon` uses HackMD's emoji unified codepoint format, such as `1F525`.
-- `UpdateFolderOptions` - Options for updating folders, including clearing nullable fields with `Some(None)`
+- `UpdateFolderOptions` - Options for updating folders
 - `UpdateFolderOrderOptions` - Wrapper for replacing workspace folder ordering
 - `NoteImageUploadResponse` - Response from the image upload endpoint
 - `NotePermissionRole` - `owner` | `signed_in` | `guest`
@@ -193,25 +193,6 @@ All API types are available in the `types` module:
 - `CommentPermissionType` - `disabled` | `forbidden` | `owners` | `signed_in_users` | `everyone`
 - `SuggestEditPermissionType` - `disabled` | `forbidden` | `owners` | `signed_in_users`
 - `TeamVisibilityType` - `public` | `private`
-
-### Clearing nullable folder fields
-
-`UpdateFolderOptions` uses `Option<Option<String>>` for nullable fields so you can
-distinguish between “leave unchanged” and “clear this value”:
-
-```rust
-use hackmd_api_client_rs::UpdateFolderOptions;
-
-let clear_description = UpdateFolderOptions {
-    description: Some(None),
-    ..Default::default()
-};
-
-let set_description = UpdateFolderOptions {
-    description: Some(Some("Docs go here".to_string())),
-    ..Default::default()
-};
-```
 
 ## Release
 
