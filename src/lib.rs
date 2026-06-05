@@ -76,60 +76,63 @@ impl ApiClient {
         }
     }
 
+    fn resource_url(&self, segments: &[&str]) -> Result<Url> {
+        let mut url = self.base_url.clone();
+        url.path_segments_mut()
+            .map_err(|_| url::ParseError::RelativeUrlWithoutBase)?
+            .pop_if_empty()
+            .extend(segments);
+        Ok(url)
+    }
+
     fn note_url(&self, note_id: &str) -> Result<Url> {
         Self::require_non_empty("note_id", note_id)?;
-        Ok(self.base_url.join(&format!("notes/{note_id}"))?)
+        self.resource_url(&["notes", note_id])
     }
 
     fn note_image_url(&self, note_id: &str) -> Result<Url> {
         Self::require_non_empty("note_id", note_id)?;
-        Ok(self.base_url.join(&format!("notes/{note_id}/images"))?)
+        self.resource_url(&["notes", note_id, "images"])
     }
 
     fn folders_url(&self) -> Result<Url> {
-        Ok(self.base_url.join("folders")?)
+        self.resource_url(&["folders"])
     }
 
     fn folder_order_url(&self) -> Result<Url> {
-        Ok(self.base_url.join("folders/folder-order")?)
+        self.resource_url(&["folders", "folder-order"])
     }
 
     fn folder_url(&self, folder_id: &str) -> Result<Url> {
         Self::require_non_empty("folder_id", folder_id)?;
-        Ok(self.base_url.join(&format!("folders/{folder_id}"))?)
+        self.resource_url(&["folders", folder_id])
     }
 
     fn team_notes_url(&self, team_path: &str) -> Result<Url> {
         Self::require_non_empty("team_path", team_path)?;
-        Ok(self.base_url.join(&format!("teams/{team_path}/notes"))?)
+        self.resource_url(&["teams", team_path, "notes"])
     }
 
     fn team_note_url(&self, team_path: &str, note_id: &str) -> Result<Url> {
         Self::require_non_empty("team_path", team_path)?;
         Self::require_non_empty("note_id", note_id)?;
-        Ok(self
-            .base_url
-            .join(&format!("teams/{team_path}/notes/{note_id}"))?)
+        self.resource_url(&["teams", team_path, "notes", note_id])
     }
 
     fn team_folders_url(&self, team_path: &str) -> Result<Url> {
         Self::require_non_empty("team_path", team_path)?;
-        Ok(self.base_url.join(&format!("teams/{team_path}/folders"))?)
+        self.resource_url(&["teams", team_path, "folders"])
     }
 
     fn team_folder_order_url(&self, team_path: &str) -> Result<Url> {
         Self::require_non_empty("team_path", team_path)?;
-        Ok(self
-            .base_url
-            .join(&format!("teams/{team_path}/folders/folder-order"))?)
+        self.resource_url(&["teams", team_path, "folders", "folder-order"])
     }
 
     fn team_folder_url(&self, team_path: &str, folder_id: &str) -> Result<Url> {
         Self::require_non_empty("team_path", team_path)?;
         Self::require_non_empty("folder_id", folder_id)?;
-        Ok(self
-            .base_url
-            .join(&format!("teams/{team_path}/folders/{folder_id}"))?)
+        self.resource_url(&["teams", team_path, "folders", folder_id])
     }
 
     fn is_success_status(status: StatusCode) -> bool {
@@ -200,52 +203,60 @@ impl ApiClient {
         }
 
         let status_text = status.canonical_reason().unwrap_or("Unknown").to_string();
+        let user_limit = response
+            .headers()
+            .get("x-ratelimit-userlimit")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
+        let user_remaining = response
+            .headers()
+            .get("x-ratelimit-userremaining")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
+        let reset_after = response
+            .headers()
+            .get("x-ratelimit-userreset")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse().ok());
+        let error_body = response.text().await.unwrap_or_default();
+        let error_detail = if error_body.trim().is_empty() {
+            String::new()
+        } else {
+            format!(": {}", error_body.trim())
+        };
 
         match status {
-            StatusCode::TOO_MANY_REQUESTS => {
-                let user_limit = response
-                    .headers()
-                    .get("x-ratelimit-userlimit")
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(0);
-
-                let user_remaining = response
-                    .headers()
-                    .get("x-ratelimit-userremaining")
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(0);
-
-                let reset_after = response
-                    .headers()
-                    .get("x-ratelimit-userreset")
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|v| v.parse().ok());
-
-                Err(ApiError::TooManyRequests(TooManyRequestsError {
-                    message: format!("Too many requests ({} {})", status.as_u16(), status_text),
-                    code: status.as_u16(),
+            StatusCode::TOO_MANY_REQUESTS => Err(ApiError::TooManyRequests(TooManyRequestsError {
+                message: format!(
+                    "Too many requests ({} {}){}",
+                    status.as_u16(),
                     status_text,
-                    user_limit,
-                    user_remaining,
-                    reset_after,
-                }))
-            }
+                    error_detail
+                ),
+                code: status.as_u16(),
+                status_text,
+                user_limit,
+                user_remaining,
+                reset_after,
+            })),
             _ if status.is_server_error() => Err(ApiError::InternalServer(InternalServerError {
                 message: format!(
-                    "HackMD internal error ({} {})",
+                    "HackMD internal error ({} {}){}",
                     status.as_u16(),
-                    status_text
+                    status_text,
+                    error_detail
                 ),
                 code: status.as_u16(),
                 status_text,
             })),
             _ => Err(ApiError::HttpResponse(HttpResponseError {
                 message: format!(
-                    "Received an error response ({} {}) from HackMD",
+                    "Received an error response ({} {}) from HackMD{}",
                     status.as_u16(),
-                    status_text
+                    status_text,
+                    error_detail
                 ),
                 code: status.as_u16(),
                 status_text,
@@ -306,7 +317,6 @@ impl ApiClient {
         time::Duration::from_millis(base_delay.as_millis() as u64 * multiplier)
     }
 
-    // User API methods
     pub async fn get_me(&self) -> Result<User> {
         self.retry_request(|| async {
             let url = self.base_url.join("me")?;
@@ -351,6 +361,15 @@ impl ApiClient {
         self.retry_request(|| async {
             let url = self.base_url.join("notes")?;
             let response = self.http_client.post(url).json(payload).send().await?;
+            self.handle_response(response).await
+        })
+        .await
+    }
+
+    pub async fn create_note_content(&self, content: &str) -> Result<SingleNote> {
+        self.retry_request(|| async {
+            let url = self.base_url.join("notes")?;
+            let response = self.http_client.post(url).json(&content).send().await?;
             self.handle_response(response).await
         })
         .await
@@ -468,7 +487,6 @@ impl ApiClient {
         .await
     }
 
-    // Team API methods
     pub async fn get_teams(&self) -> Result<Vec<Team>> {
         self.retry_request(|| async {
             let url = self.base_url.join("teams")?;
@@ -487,6 +505,15 @@ impl ApiClient {
         .await
     }
 
+    pub async fn get_team_note(&self, team_path: &str, note_id: &str) -> Result<SingleNote> {
+        self.retry_request(|| async {
+            let url = self.team_note_url(team_path, note_id)?;
+            let response = self.http_client.get(url).send().await?;
+            self.handle_response(response).await
+        })
+        .await
+    }
+
     pub async fn create_team_note(
         &self,
         team_path: &str,
@@ -495,6 +522,19 @@ impl ApiClient {
         self.retry_request(|| async {
             let url = self.team_notes_url(team_path)?;
             let response = self.http_client.post(url).json(payload).send().await?;
+            self.handle_response(response).await
+        })
+        .await
+    }
+
+    pub async fn create_team_note_content(
+        &self,
+        team_path: &str,
+        content: &str,
+    ) -> Result<SingleNote> {
+        self.retry_request(|| async {
+            let url = self.team_notes_url(team_path)?;
+            let response = self.http_client.post(url).json(&content).send().await?;
             self.handle_response(response).await
         })
         .await
@@ -672,6 +712,22 @@ mod tests {
     }
 
     #[test]
+    fn test_create_note_options_serialization_supports_note_features() {
+        let options = CreateNoteOptions {
+            title: Some("Featureful Note".to_string()),
+            note_features: Some(std::collections::BTreeMap::from([(
+                "comment".to_string(),
+                serde_json::json!({"enabled": true}),
+            )])),
+            ..Default::default()
+        };
+
+        let json = serde_json::to_value(&options).unwrap();
+        assert_eq!(json["title"], "Featureful Note");
+        assert_eq!(json["noteFeatures"]["comment"]["enabled"], true);
+    }
+
+    #[test]
     fn test_update_note_options_serialization() {
         let options = UpdateNoteOptions {
             content: Some("Updated content".to_string()),
@@ -684,7 +740,6 @@ mod tests {
         assert!(json.contains("Updated content"));
         assert!(json.contains("guest"));
         assert!(json.contains("custom-permalink"));
-        // Should not contain null values for None fields
         assert!(!json.contains("readPermission"));
     }
 
@@ -772,12 +827,29 @@ mod tests {
     }
 
     #[test]
+    fn test_resource_urls_percent_encode_path_segments() {
+        let client = ApiClient::new("test_token").unwrap();
+
+        assert_eq!(
+            client.note_url("note/123 ?#").unwrap().as_str(),
+            "https://api.hackmd.io/v1/notes/note%2F123%20%3F%23"
+        );
+        assert_eq!(
+            client
+                .team_note_url("platform/team", "note/123")
+                .unwrap()
+                .as_str(),
+            "https://api.hackmd.io/v1/teams/platform%2Fteam/notes/note%2F123"
+        );
+    }
+
+    #[test]
     fn test_create_folder_options_serialization() {
         let options = CreateFolderOptions {
             name: Some("Project Docs".to_string()),
             parent_folder_id: Some("root-folder".to_string()),
             description: Some("Shared project docs".to_string()),
-            icon: Some("📁".to_string()),
+            icon: Some("1F4C1".to_string()),
             color: Some("#4F46E5".to_string()),
         };
 
@@ -785,8 +857,38 @@ mod tests {
         assert!(json.contains("Project Docs"));
         assert!(json.contains("root-folder"));
         assert!(json.contains("Shared project docs"));
-        assert!(json.contains("📁"));
+        assert!(json.contains("1F4C1"));
         assert!(json.contains("#4F46E5"));
+    }
+
+    #[test]
+    fn test_note_deserialization_accepts_double_millisecond_timestamps() {
+        let value = serde_json::json!({
+            "id": "note-123",
+            "title": "Timestamp Note",
+            "description": "",
+            "tags": [],
+            "lastChangedAt": 1_710_000_000_000.0,
+            "createdAt": 1_710_000_000_000.0,
+            "titleUpdatedAt": 1_710_000_000_001.0,
+            "tagsUpdatedAt": null,
+            "lastChangeUser": null,
+            "publishType": "edit",
+            "publishedAt": null,
+            "userPath": "demo-user",
+            "teamPath": null,
+            "permalink": null,
+            "shortId": "short-123",
+            "publishLink": "https://hackmd.io/note-123",
+            "folderPaths": [],
+            "readPermission": "owner",
+            "writePermission": "owner"
+        });
+
+        let note: Note = serde_json::from_value(value).unwrap();
+
+        assert_eq!(note.id, "note-123");
+        assert!(note.title_updated_at.is_some());
     }
 
     #[test]

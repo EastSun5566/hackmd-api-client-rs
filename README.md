@@ -9,7 +9,7 @@ You can sign up for an account at [hackmd.io](https://hackmd.io/), and then crea
 
 ## Features
 
-- ✅ Complete API coverage (User, Notes, Teams, Folders, Image Upload)
+- ✅ Covers the documented HackMD v1 endpoints for profile, notes, teams, folders, and image upload
 - ✅ Async/await support with `tokio`
 - ✅ Retry mechanism with exponential backoff
 - ✅ Comprehensive error handling & Type-safe request/response
@@ -63,8 +63,8 @@ use hackmd_api_client_rs::{ApiClient, ApiClientOptions, RetryOptions};
 use std::time::Duration;
 
 let options = ApiClientOptions {
-    wrap_response_errors: true, // Convert HTTP errors to custom error types
-    timeout: Some(Duration::from_secs(30)), // Request timeout
+    wrap_response_errors: true,
+    timeout: Some(Duration::from_secs(30)),
     retry_options: Some(RetryOptions {
         max_retries: 3,
         base_delay: Duration::from_millis(100),
@@ -74,6 +74,12 @@ let options = ApiClientOptions {
 let access_token = std::env::var("HACKMD_ACCESS_TOKEN")?;
 let client = ApiClient::with_options(&access_token, None, Some(options))?;
 ```
+
+- `wrap_response_errors`: when `true`, the client converts non-2xx responses into
+    custom `ApiError` variants such as `TooManyRequests` and `InternalServer`.
+- `timeout`: applies a per-request timeout to the underlying `reqwest` client.
+- `retry_options`: retries connection/time-out failures plus HTTP `429` and `5xx`
+    responses using exponential backoff.
 
 Use `with_base_url()` when targeting a self-hosted HackMD deployment. A trailing slash is optional:
 
@@ -91,6 +97,7 @@ let client = ApiClient::with_base_url(&access_token, "https://your-hackmd.exampl
 - `get_note_list()` - Get user's notes
 - `get_note(note_id)` - Get a specific note
 - `create_note(options)` - Create a new note
+- `create_note_content(content)` - Create a new note by sending a Markdown string as the request body
 - `update_note(note_id, options)` - Update a note
 - `update_note_content(note_id, content)` - Update note content only
 - `delete_note(note_id)` - Delete a note
@@ -110,7 +117,9 @@ let client = ApiClient::with_base_url(&access_token, "https://your-hackmd.exampl
 
 - `get_teams()` - Get user's teams
 - `get_team_notes(team_path)` - Get team's notes
+- `get_team_note(team_path, note_id)` - Get a specific team note
 - `create_team_note(team_path, options)` - Create a team note
+- `create_team_note_content(team_path, content)` - Create a team note by sending a Markdown string as the request body
 - `update_team_note(team_path, note_id, options)` - Update a team note
 - `update_team_note_content(team_path, note_id, content)` - Update team note content
 - `delete_team_note(team_path, note_id)` - Delete a team note
@@ -170,12 +179,13 @@ All API types are available in the `types` module:
 - `SingleNote` - Note with full content
 - `Folder` - Folder metadata for personal or team workspaces
 - `FolderOrder` - Folder ordering map keyed by `root` or a parent folder ID
+- `NoteFeatures` - Forward-compatible note feature map used by create-note requests
 - `FolderPath` - Folder path entry for note folder organisation
 - `SimpleUserProfile` - Minimal user profile (used in `Note.last_change_user`)
-- `CreateNoteOptions` - Options for creating notes (title, content, description, tags, permissions, `parent_folder_id`, `origin`, etc.)
+- `CreateNoteOptions` - Options for creating notes (title, content, description, tags, permissions, `parent_folder_id`, `origin`, `note_features`, etc.)
 - `UpdateNoteOptions` - Options for updating notes (title, content, description, tags, permissions, `parent_folder_id`)
-- `CreateFolderOptions` - Options for creating folders (`name`, `description`, `icon`, `color`, `parent_folder_id`)
-- `UpdateFolderOptions` - Options for updating folders, including clearing nullable fields with `Some(None)`
+- `CreateFolderOptions` - Options for creating folders (`name`, `description`, `icon`, `color`, `parent_folder_id`). `icon` uses HackMD's emoji unified codepoint format, such as `1F525`.
+- `UpdateFolderOptions` - Options for updating folders
 - `UpdateFolderOrderOptions` - Wrapper for replacing workspace folder ordering
 - `NoteImageUploadResponse` - Response from the image upload endpoint
 - `NotePermissionRole` - `owner` | `signed_in` | `guest`

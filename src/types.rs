@@ -1,5 +1,6 @@
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::{DateTime, TimeZone, Utc};
+use serde::{de, Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -61,6 +62,40 @@ pub struct FolderPath {
 
 pub type FolderOrder = BTreeMap<String, Vec<String>>;
 
+pub type NoteFeatures = BTreeMap<String, Value>;
+
+fn datetime_from_milliseconds<E>(value: f64) -> Result<DateTime<Utc>, E>
+where
+    E: de::Error,
+{
+    if !value.is_finite() {
+        return Err(E::custom("timestamp must be finite"));
+    }
+
+    Utc.timestamp_millis_opt(value.round() as i64)
+        .single()
+        .ok_or_else(|| E::custom("timestamp is out of range"))
+}
+
+fn deserialize_ts_milliseconds<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = f64::deserialize(deserializer)?;
+    datetime_from_milliseconds(value)
+}
+
+fn deserialize_ts_milliseconds_option<'de, D>(
+    deserializer: D,
+) -> Result<Option<DateTime<Utc>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Option::<f64>::deserialize(deserializer)?
+        .map(datetime_from_milliseconds)
+        .transpose()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Folder {
@@ -70,9 +105,9 @@ pub struct Folder {
     pub icon: Option<String>,
     pub color: Option<String>,
     pub parent_folder_id: Option<String>,
-    #[serde(with = "chrono::serde::ts_milliseconds")]
+    #[serde(deserialize_with = "deserialize_ts_milliseconds")]
     pub created_at: DateTime<Utc>,
-    #[serde(with = "chrono::serde::ts_milliseconds")]
+    #[serde(deserialize_with = "deserialize_ts_milliseconds")]
     pub updated_at: DateTime<Utc>,
 }
 
@@ -124,6 +159,8 @@ pub struct CreateNoteOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tags: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub note_features: Option<NoteFeatures>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub read_permission: Option<NotePermissionRole>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub write_permission: Option<NotePermissionRole>,
@@ -159,7 +196,7 @@ pub struct Team {
     pub path: String,
     pub description: Option<String>,
     pub visibility: TeamVisibilityType,
-    #[serde(with = "chrono::serde::ts_milliseconds")]
+    #[serde(deserialize_with = "deserialize_ts_milliseconds")]
     pub created_at: DateTime<Utc>,
     pub upgraded: bool,
 }
@@ -193,17 +230,17 @@ pub struct Note {
     #[serde(default)]
     pub description: String,
     pub tags: Vec<String>,
-    #[serde(with = "chrono::serde::ts_milliseconds")]
+    #[serde(deserialize_with = "deserialize_ts_milliseconds")]
     pub last_changed_at: DateTime<Utc>,
-    #[serde(with = "chrono::serde::ts_milliseconds")]
+    #[serde(deserialize_with = "deserialize_ts_milliseconds")]
     pub created_at: DateTime<Utc>,
-    #[serde(with = "chrono::serde::ts_milliseconds_option")]
+    #[serde(deserialize_with = "deserialize_ts_milliseconds_option")]
     pub title_updated_at: Option<DateTime<Utc>>,
-    #[serde(with = "chrono::serde::ts_milliseconds_option")]
+    #[serde(deserialize_with = "deserialize_ts_milliseconds_option")]
     pub tags_updated_at: Option<DateTime<Utc>>,
     pub last_change_user: Option<SimpleUserProfile>,
     pub publish_type: NotePublishType,
-    #[serde(with = "chrono::serde::ts_milliseconds_option")]
+    #[serde(deserialize_with = "deserialize_ts_milliseconds_option")]
     pub published_at: Option<DateTime<Utc>>,
     pub user_path: Option<String>,
     pub team_path: Option<String>,
