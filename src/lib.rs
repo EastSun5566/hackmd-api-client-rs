@@ -86,6 +86,19 @@ impl ApiClient {
         Ok(self.base_url.join(&format!("notes/{note_id}/images"))?)
     }
 
+    fn folders_url(&self) -> Result<Url> {
+        Ok(self.base_url.join("folders")?)
+    }
+
+    fn folder_order_url(&self) -> Result<Url> {
+        Ok(self.base_url.join("folders/folder-order")?)
+    }
+
+    fn folder_url(&self, folder_id: &str) -> Result<Url> {
+        Self::require_non_empty("folder_id", folder_id)?;
+        Ok(self.base_url.join(&format!("folders/{folder_id}"))?)
+    }
+
     fn team_notes_url(&self, team_path: &str) -> Result<Url> {
         Self::require_non_empty("team_path", team_path)?;
         Ok(self.base_url.join(&format!("teams/{team_path}/notes"))?)
@@ -97,6 +110,26 @@ impl ApiClient {
         Ok(self
             .base_url
             .join(&format!("teams/{team_path}/notes/{note_id}"))?)
+    }
+
+    fn team_folders_url(&self, team_path: &str) -> Result<Url> {
+        Self::require_non_empty("team_path", team_path)?;
+        Ok(self.base_url.join(&format!("teams/{team_path}/folders"))?)
+    }
+
+    fn team_folder_order_url(&self, team_path: &str) -> Result<Url> {
+        Self::require_non_empty("team_path", team_path)?;
+        Ok(self
+            .base_url
+            .join(&format!("teams/{team_path}/folders/folder-order"))?)
+    }
+
+    fn team_folder_url(&self, team_path: &str, folder_id: &str) -> Result<Url> {
+        Self::require_non_empty("team_path", team_path)?;
+        Self::require_non_empty("folder_id", folder_id)?;
+        Ok(self
+            .base_url
+            .join(&format!("teams/{team_path}/folders/{folder_id}"))?)
     }
 
     fn is_success_status(status: StatusCode) -> bool {
@@ -368,6 +401,73 @@ impl ApiClient {
         .await
     }
 
+    pub async fn get_folders(&self) -> Result<Vec<Folder>> {
+        self.retry_request(|| async {
+            let url = self.folders_url()?;
+            let response = self.http_client.get(url).send().await?;
+            self.handle_response(response).await
+        })
+        .await
+    }
+
+    pub async fn create_folder(&self, payload: &CreateFolderOptions) -> Result<Folder> {
+        self.retry_request(|| async {
+            let url = self.folders_url()?;
+            let response = self.http_client.post(url).json(payload).send().await?;
+            self.handle_response(response).await
+        })
+        .await
+    }
+
+    pub async fn get_folder(&self, folder_id: &str) -> Result<Folder> {
+        self.retry_request(|| async {
+            let url = self.folder_url(folder_id)?;
+            let response = self.http_client.get(url).send().await?;
+            self.handle_response(response).await
+        })
+        .await
+    }
+
+    pub async fn update_folder(
+        &self,
+        folder_id: &str,
+        payload: &UpdateFolderOptions,
+    ) -> Result<()> {
+        self.retry_request(|| async {
+            let url = self.folder_url(folder_id)?;
+            let response = self.http_client.patch(url).json(payload).send().await?;
+            self.handle_empty_response(response).await
+        })
+        .await
+    }
+
+    pub async fn delete_folder(&self, folder_id: &str) -> Result<()> {
+        self.retry_request(|| async {
+            let url = self.folder_url(folder_id)?;
+            let response = self.http_client.delete(url).send().await?;
+            self.handle_empty_response(response).await
+        })
+        .await
+    }
+
+    pub async fn get_folder_order(&self) -> Result<FolderOrder> {
+        self.retry_request(|| async {
+            let url = self.folder_order_url()?;
+            let response = self.http_client.get(url).send().await?;
+            self.handle_response(response).await
+        })
+        .await
+    }
+
+    pub async fn update_folder_order(&self, payload: &UpdateFolderOrderOptions) -> Result<()> {
+        self.retry_request(|| async {
+            let url = self.folder_order_url()?;
+            let response = self.http_client.put(url).json(payload).send().await?;
+            self.handle_empty_response(response).await
+        })
+        .await
+    }
+
     // Team API methods
     pub async fn get_teams(&self) -> Result<Vec<Team>> {
         self.retry_request(|| async {
@@ -431,6 +531,82 @@ impl ApiClient {
         self.retry_request(|| async {
             let url = self.team_note_url(team_path, note_id)?;
             let response = self.http_client.delete(url).send().await?;
+            self.handle_empty_response(response).await
+        })
+        .await
+    }
+
+    pub async fn get_team_folders(&self, team_path: &str) -> Result<Vec<Folder>> {
+        self.retry_request(|| async {
+            let url = self.team_folders_url(team_path)?;
+            let response = self.http_client.get(url).send().await?;
+            self.handle_response(response).await
+        })
+        .await
+    }
+
+    pub async fn create_team_folder(
+        &self,
+        team_path: &str,
+        payload: &CreateFolderOptions,
+    ) -> Result<Folder> {
+        self.retry_request(|| async {
+            let url = self.team_folders_url(team_path)?;
+            let response = self.http_client.post(url).json(payload).send().await?;
+            self.handle_response(response).await
+        })
+        .await
+    }
+
+    pub async fn get_team_folder(&self, team_path: &str, folder_id: &str) -> Result<Folder> {
+        self.retry_request(|| async {
+            let url = self.team_folder_url(team_path, folder_id)?;
+            let response = self.http_client.get(url).send().await?;
+            self.handle_response(response).await
+        })
+        .await
+    }
+
+    pub async fn update_team_folder(
+        &self,
+        team_path: &str,
+        folder_id: &str,
+        payload: &UpdateFolderOptions,
+    ) -> Result<()> {
+        self.retry_request(|| async {
+            let url = self.team_folder_url(team_path, folder_id)?;
+            let response = self.http_client.patch(url).json(payload).send().await?;
+            self.handle_empty_response(response).await
+        })
+        .await
+    }
+
+    pub async fn delete_team_folder(&self, team_path: &str, folder_id: &str) -> Result<()> {
+        self.retry_request(|| async {
+            let url = self.team_folder_url(team_path, folder_id)?;
+            let response = self.http_client.delete(url).send().await?;
+            self.handle_empty_response(response).await
+        })
+        .await
+    }
+
+    pub async fn get_team_folder_order(&self, team_path: &str) -> Result<FolderOrder> {
+        self.retry_request(|| async {
+            let url = self.team_folder_order_url(team_path)?;
+            let response = self.http_client.get(url).send().await?;
+            self.handle_response(response).await
+        })
+        .await
+    }
+
+    pub async fn update_team_folder_order(
+        &self,
+        team_path: &str,
+        payload: &UpdateFolderOrderOptions,
+    ) -> Result<()> {
+        self.retry_request(|| async {
+            let url = self.team_folder_order_url(team_path)?;
+            let response = self.http_client.put(url).json(payload).send().await?;
             self.handle_empty_response(response).await
         })
         .await
@@ -521,6 +697,14 @@ mod tests {
     }
 
     #[test]
+    fn test_folder_url_requires_folder_id() {
+        let client = ApiClient::new("test_token").unwrap();
+        let error = client.folder_url("   ").unwrap_err();
+
+        assert!(matches!(error, ApiError::MissingRequiredArgument(_)));
+    }
+
+    #[test]
     fn test_team_note_url_requires_team_path() {
         let client = ApiClient::new("test_token").unwrap();
         let error = client.team_note_url("", "note-123").unwrap_err();
@@ -529,7 +713,15 @@ mod tests {
     }
 
     #[test]
-    fn test_note_and_team_urls_are_composed_from_valid_identifiers() {
+    fn test_team_folder_url_requires_team_path() {
+        let client = ApiClient::new("test_token").unwrap();
+        let error = client.team_folder_url("", "folder-123").unwrap_err();
+
+        assert!(matches!(error, ApiError::MissingRequiredArgument(_)));
+    }
+
+    #[test]
+    fn test_note_team_and_folder_urls_are_composed_from_valid_identifiers() {
         let client = ApiClient::new("test_token").unwrap();
 
         assert_eq!(
@@ -537,11 +729,107 @@ mod tests {
             "https://api.hackmd.io/v1/notes/note-123"
         );
         assert_eq!(
+            client.note_image_url("note-123").unwrap().as_str(),
+            "https://api.hackmd.io/v1/notes/note-123/images"
+        );
+        assert_eq!(
+            client.folders_url().unwrap().as_str(),
+            "https://api.hackmd.io/v1/folders"
+        );
+        assert_eq!(
+            client.folder_order_url().unwrap().as_str(),
+            "https://api.hackmd.io/v1/folders/folder-order"
+        );
+        assert_eq!(
+            client.folder_url("folder-123").unwrap().as_str(),
+            "https://api.hackmd.io/v1/folders/folder-123"
+        );
+        assert_eq!(
             client
                 .team_note_url("platform-team", "note-123")
                 .unwrap()
                 .as_str(),
             "https://api.hackmd.io/v1/teams/platform-team/notes/note-123"
+        );
+        assert_eq!(
+            client.team_folders_url("platform-team").unwrap().as_str(),
+            "https://api.hackmd.io/v1/teams/platform-team/folders"
+        );
+        assert_eq!(
+            client
+                .team_folder_order_url("platform-team")
+                .unwrap()
+                .as_str(),
+            "https://api.hackmd.io/v1/teams/platform-team/folders/folder-order"
+        );
+        assert_eq!(
+            client
+                .team_folder_url("platform-team", "folder-123")
+                .unwrap()
+                .as_str(),
+            "https://api.hackmd.io/v1/teams/platform-team/folders/folder-123"
+        );
+    }
+
+    #[test]
+    fn test_create_folder_options_serialization() {
+        let options = CreateFolderOptions {
+            name: Some("Project Docs".to_string()),
+            parent_folder_id: Some("root-folder".to_string()),
+            description: Some("Shared project docs".to_string()),
+            icon: Some("📁".to_string()),
+            color: Some("#4F46E5".to_string()),
+        };
+
+        let json = serde_json::to_string(&options).unwrap();
+        assert!(json.contains("Project Docs"));
+        assert!(json.contains("root-folder"));
+        assert!(json.contains("Shared project docs"));
+        assert!(json.contains("📁"));
+        assert!(json.contains("#4F46E5"));
+    }
+
+    #[test]
+    fn test_update_folder_options_serialization_supports_null_clears() {
+        let options = UpdateFolderOptions {
+            name: Some("Renamed Folder".to_string()),
+            parent_folder_id: Some(None),
+            description: Some(None),
+            icon: None,
+            color: Some(Some("#16A34A".to_string())),
+        };
+
+        let json = serde_json::to_value(&options).unwrap();
+        assert_eq!(json["name"], "Renamed Folder");
+        assert_eq!(json["parentFolderId"], Value::Null);
+        assert_eq!(json["description"], Value::Null);
+        assert_eq!(json["color"], "#16A34A");
+        assert!(json.get("icon").is_none());
+    }
+
+    #[test]
+    fn test_update_folder_order_options_serialization() {
+        let options = UpdateFolderOrderOptions {
+            order: std::collections::BTreeMap::from([
+                (
+                    "root".to_string(),
+                    vec!["folder-a".to_string(), "folder-b".to_string()],
+                ),
+                (
+                    "folder-a".to_string(),
+                    vec!["folder-c".to_string(), "folder-d".to_string()],
+                ),
+            ]),
+        };
+
+        let json = serde_json::to_value(&options).unwrap();
+        assert_eq!(
+            json["order"]["root"],
+            serde_json::json!(["folder-a", "folder-b"])
+        );
+        assert_eq!(
+            json["order"]["folder-a"],
+            serde_json::json!(["folder-c", "folder-d"])
         );
     }
 

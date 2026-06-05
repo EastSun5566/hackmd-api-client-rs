@@ -1,6 +1,6 @@
 use hackmd_api_client_rs::{
-    ApiClient, ApiClientOptions, CommentPermissionType, CreateNoteOptions, NotePermissionRole,
-    RetryOptions, UpdateNoteOptions,
+    ApiClient, ApiClientOptions, CommentPermissionType, CreateFolderOptions, CreateNoteOptions,
+    NotePermissionRole, RetryOptions, UpdateNoteOptions,
 };
 use std::{env, error, io, time};
 
@@ -118,6 +118,37 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     println!();
 
+    println!("📁 Creating a temporary personal folder...");
+    let temporary_folder = client
+        .create_folder(&CreateFolderOptions {
+            name: Some(format!(
+                "rust-example-folder-{}",
+                chrono::Utc::now().timestamp()
+            )),
+            description: Some("Created by the advanced Rust example".to_string()),
+            icon: Some("📁".to_string()),
+            color: Some("#4F46E5".to_string()),
+            ..Default::default()
+        })
+        .await?;
+    println!(
+        "✅ Created folder: {} ({})",
+        temporary_folder.name, temporary_folder.id
+    );
+
+    println!("📂 Getting personal folders...");
+    let folders = client.get_folders().await?;
+    println!("✅ Found {} personal folders", folders.len());
+    for folder in folders.iter().take(5) {
+        println!("     - {} ({})", folder.name, folder.id);
+    }
+
+    println!("🧹 Deleting temporary personal folder...");
+    client.delete_folder(&temporary_folder.id).await?;
+    println!("✅ Temporary folder deleted");
+
+    println!();
+
     println!("👥 Getting teams...");
     let teams = client.get_teams().await?;
     if teams.is_empty() {
@@ -139,6 +170,16 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                     }
                 }
                 Err(error) => eprintln!("     ❌ Error getting team notes: {:?}", error),
+            }
+
+            match client.get_team_folders(&team.path).await {
+                Ok(team_folders) => {
+                    println!("     Folders: {} folders", team_folders.len());
+                    for folder in team_folders.iter().take(3) {
+                        println!("       📁 {}", folder.name);
+                    }
+                }
+                Err(error) => eprintln!("     ❌ Error getting team folders: {:?}", error),
             }
         }
     }

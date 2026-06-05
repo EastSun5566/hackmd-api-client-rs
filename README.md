@@ -9,7 +9,7 @@ You can sign up for an account at [hackmd.io](https://hackmd.io/), and then crea
 
 ## Features
 
-- ✅ Complete API coverage (User, Notes, Teams, Image Upload)
+- ✅ Complete API coverage (User, Notes, Teams, Folders, Image Upload)
 - ✅ Async/await support with `tokio`
 - ✅ Retry mechanism with exponential backoff
 - ✅ Comprehensive error handling & Type-safe request/response
@@ -96,6 +96,16 @@ let client = ApiClient::with_base_url(&access_token, "https://your-hackmd.exampl
 - `delete_note(note_id)` - Delete a note
 - `upload_note_image(note_id, image_bytes, file_name, mime_type)` - Upload an image for a note
 
+### User Folder API
+
+- `get_folders()` - Get the current user's folders
+- `create_folder(options)` - Create a folder in the current user's workspace
+- `get_folder(folder_id)` - Get a specific folder
+- `update_folder(folder_id, options)` - Update a folder
+- `delete_folder(folder_id)` - Delete a folder
+- `get_folder_order()` - Get personal folder ordering for the current workspace
+- `update_folder_order(options)` - Replace personal folder ordering for the current workspace
+
 ### Team API
 
 - `get_teams()` - Get user's teams
@@ -104,6 +114,13 @@ let client = ApiClient::with_base_url(&access_token, "https://your-hackmd.exampl
 - `update_team_note(team_path, note_id, options)` - Update a team note
 - `update_team_note_content(team_path, note_id, content)` - Update team note content
 - `delete_team_note(team_path, note_id)` - Delete a team note
+- `get_team_folders(team_path)` - Get folders in a team workspace
+- `create_team_folder(team_path, options)` - Create a folder in a team workspace
+- `get_team_folder(team_path, folder_id)` - Get a specific team folder
+- `update_team_folder(team_path, folder_id, options)` - Update a team folder
+- `delete_team_folder(team_path, folder_id)` - Delete a team folder
+- `get_team_folder_order(team_path)` - Get personal folder ordering for a team workspace
+- `update_team_folder_order(team_path, options)` - Replace personal folder ordering for a team workspace
 
 ## Error Handling
 
@@ -151,10 +168,15 @@ All API types are available in the `types` module:
 - `Team` - Team information (`owner_id`, `visibility`, etc.)
 - `Note` - Note metadata (includes `description`, `tags`, `folder_paths`, `title_updated_at`, `tags_updated_at`)
 - `SingleNote` - Note with full content
+- `Folder` - Folder metadata for personal or team workspaces
+- `FolderOrder` - Folder ordering map keyed by `root` or a parent folder ID
 - `FolderPath` - Folder path entry for note folder organisation
 - `SimpleUserProfile` - Minimal user profile (used in `Note.last_change_user`)
 - `CreateNoteOptions` - Options for creating notes (title, content, description, tags, permissions, `parent_folder_id`, `origin`, etc.)
 - `UpdateNoteOptions` - Options for updating notes (title, content, description, tags, permissions, `parent_folder_id`)
+- `CreateFolderOptions` - Options for creating folders (`name`, `description`, `icon`, `color`, `parent_folder_id`)
+- `UpdateFolderOptions` - Options for updating folders, including clearing nullable fields with `Some(None)`
+- `UpdateFolderOrderOptions` - Wrapper for replacing workspace folder ordering
 - `NoteImageUploadResponse` - Response from the image upload endpoint
 - `NotePermissionRole` - `owner` | `signed_in` | `guest`
 - `NotePublishType` - `edit` | `view` | `slide` | `book`
