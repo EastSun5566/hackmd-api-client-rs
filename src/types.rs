@@ -60,14 +60,8 @@ pub struct FolderPath {
     pub client_id: String,
 }
 
-/// Personal folder ordering keyed by either `root` or a parent folder ID.
 pub type FolderOrder = BTreeMap<String, Vec<String>>;
 
-/// Arbitrary note feature configuration accepted by HackMD's create-note APIs.
-///
-/// The upstream OpenAPI schema currently leaves the object shape underspecified,
-/// so the client preserves it as raw JSON keyed by feature name for forward
-/// compatibility.
 pub type NoteFeatures = BTreeMap<String, Value>;
 
 fn datetime_from_milliseconds<E>(value: f64) -> Result<DateTime<Utc>, E>
@@ -132,12 +126,6 @@ pub struct CreateFolderOptions {
     pub color: Option<String>,
 }
 
-/// Options for partially updating a folder.
-///
-/// Nullable fields use a nested option so callers can distinguish among:
-/// - `None`: do not send the field
-/// - `Some(Some(value))`: set the field to a concrete value
-/// - `Some(None)`: explicitly clear the field by sending `null`
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateFolderOptions {
@@ -159,7 +147,6 @@ pub struct UpdateFolderOrderOptions {
     pub order: FolderOrder,
 }
 
-/// Options for creating a note in a personal or team workspace.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateNoteOptions {

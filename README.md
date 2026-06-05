@@ -94,13 +94,10 @@ let client = ApiClient::with_base_url(&access_token, "https://your-hackmd.exampl
 
 - `get_me()` - Get current user information
 - `get_history(limit)` - Get user's note history (`limit` is `Option<u32>`)
-- `get_history_raw(limit)` - Get raw history items when using the currently underspecified OpenAPI history schema
 - `get_note_list()` - Get user's notes
 - `get_note(note_id)` - Get a specific note
 - `create_note(options)` - Create a new note
-- `create_note_raw(options)` - Create a note and keep HackMD's raw, currently underspecified response
-- `create_note_content(content)` - Create a new note by sending raw Markdown content as the request body
-- `create_note_content_raw(content)` - Create a raw Markdown note and keep HackMD's raw response
+- `create_note_content(content)` - Create a new note by sending a Markdown string as the request body
 - `update_note(note_id, options)` - Update a note
 - `update_note_content(note_id, content)` - Update note content only
 - `delete_note(note_id)` - Delete a note
@@ -110,9 +107,7 @@ let client = ApiClient::with_base_url(&access_token, "https://your-hackmd.exampl
 
 - `get_folders()` - Get the current user's folders
 - `create_folder(options)` - Create a folder in the current user's workspace
-- `create_folder_raw(options)` - Create a folder and keep HackMD's raw, currently underspecified response
 - `get_folder(folder_id)` - Get a specific folder
-- `get_folder_optional(folder_id)` - Get a folder while mapping HackMD's empty-object response to `None`
 - `update_folder(folder_id, options)` - Update a folder
 - `delete_folder(folder_id)` - Delete a folder
 - `get_folder_order()` - Get personal folder ordering for the current workspace
@@ -124,17 +119,13 @@ let client = ApiClient::with_base_url(&access_token, "https://your-hackmd.exampl
 - `get_team_notes(team_path)` - Get team's notes
 - `get_team_note(team_path, note_id)` - Get a specific team note
 - `create_team_note(team_path, options)` - Create a team note
-- `create_team_note_raw(team_path, options)` - Create a team note and keep HackMD's raw, currently underspecified response
-- `create_team_note_content(team_path, content)` - Create a team note by sending raw Markdown content as the request body
-- `create_team_note_content_raw(team_path, content)` - Create a raw Markdown team note and keep HackMD's raw response
+- `create_team_note_content(team_path, content)` - Create a team note by sending a Markdown string as the request body
 - `update_team_note(team_path, note_id, options)` - Update a team note
 - `update_team_note_content(team_path, note_id, content)` - Update team note content
 - `delete_team_note(team_path, note_id)` - Delete a team note
 - `get_team_folders(team_path)` - Get folders in a team workspace
 - `create_team_folder(team_path, options)` - Create a folder in a team workspace
-- `create_team_folder_raw(team_path, options)` - Create a team folder and keep HackMD's raw, currently underspecified response
 - `get_team_folder(team_path, folder_id)` - Get a specific team folder
-- `get_team_folder_optional(team_path, folder_id)` - Get a team folder while mapping HackMD's empty-object response to `None`
 - `update_team_folder(team_path, folder_id, options)` - Update a team folder
 - `delete_team_folder(team_path, folder_id)` - Delete a team folder
 - `get_team_folder_order(team_path)` - Get personal folder ordering for a team workspace

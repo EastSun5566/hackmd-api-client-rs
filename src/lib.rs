@@ -13,7 +13,6 @@ use std::{future, time};
 
 const DEFAULT_BASE_URL: &str = "https://api.hackmd.io/v1/";
 
-/// Configuration applied when constructing an [`ApiClient`].
 #[derive(Clone)]
 pub struct ApiClientOptions {
     pub wrap_response_errors: bool,
@@ -31,7 +30,6 @@ impl Default for ApiClientOptions {
     }
 }
 
-/// Retry policy for transient HackMD and transport failures.
 #[derive(Clone)]
 pub struct RetryOptions {
     pub max_retries: u32,
@@ -47,7 +45,6 @@ impl Default for RetryOptions {
     }
 }
 
-/// Main entry point for the HackMD v1 REST API.
 pub struct ApiClient {
     http_client: HttpClient,
     base_url: Url,
@@ -142,19 +139,14 @@ impl ApiClient {
         status.is_success()
     }
 
-    /// Create a client that targets the default HackMD API base URL.
     pub fn new(access_token: &str) -> Result<Self> {
         Self::with_options(access_token, None, None)
     }
 
-    /// Create a client with a custom HackMD-compatible base URL.
-    ///
-    /// A trailing slash is optional and will be normalized automatically.
     pub fn with_base_url(access_token: &str, base_url: &str) -> Result<Self> {
         Self::with_options(access_token, Some(base_url), None)
     }
 
-    /// Create a client with optional base URL and transport configuration.
     pub fn with_options(
         access_token: &str,
         base_url: Option<&str>,
@@ -280,31 +272,6 @@ impl ApiClient {
         self.handle_response::<Value>(response).await.map(|_| ())
     }
 
-    async fn handle_value_response(&self, response: Response) -> Result<Value> {
-        if !Self::is_success_status(response.status()) {
-            return self.handle_response(response).await;
-        }
-
-        let body = response.text().await?;
-        if body.trim().is_empty() {
-            return Ok(Value::Null);
-        }
-
-        Ok(serde_json::from_str(&body)?)
-    }
-
-    async fn handle_optional_response<T>(&self, response: Response) -> Result<Option<T>>
-    where
-        T: serde::de::DeserializeOwned,
-    {
-        let value = self.handle_response::<Value>(response).await?;
-        if value.as_object().is_some_and(|object| object.is_empty()) {
-            return Ok(None);
-        }
-
-        Ok(Some(serde_json::from_value(value)?))
-    }
-
     async fn retry_request<F, Fut, T>(&self, operation: F) -> Result<T>
     where
         F: Fn() -> Fut,
@@ -350,7 +317,6 @@ impl ApiClient {
         time::Duration::from_millis(base_delay.as_millis() as u64 * multiplier)
     }
 
-    // User API methods
     pub async fn get_me(&self) -> Result<User> {
         self.retry_request(|| async {
             let url = self.base_url.join("me")?;
@@ -361,24 +327,6 @@ impl ApiClient {
     }
 
     pub async fn get_history(&self, limit: Option<u32>) -> Result<Vec<Note>> {
-        self.retry_request(|| async {
-            let mut url = self.base_url.join("history")?;
-            if let Some(limit_val) = limit {
-                url.query_pairs_mut()
-                    .append_pair("limit", &limit_val.to_string());
-            }
-            let response = self.http_client.get(url).send().await?;
-            self.handle_response(response).await
-        })
-        .await
-    }
-
-    /// Get raw note history items.
-    ///
-    /// HackMD's OpenAPI schema currently leaves history item fields
-    /// unspecified, so this method preserves the raw response for callers that
-    /// need forward-compatible access.
-    pub async fn get_history_raw(&self, limit: Option<u32>) -> Result<Vec<Value>> {
         self.retry_request(|| async {
             let mut url = self.base_url.join("history")?;
             if let Some(limit_val) = limit {
@@ -418,36 +366,11 @@ impl ApiClient {
         .await
     }
 
-    /// Create a note and return the raw JSON response.
-    ///
-    /// HackMD's OpenAPI schema currently leaves create-note response fields
-    /// unspecified and may return a successful empty body for some statuses.
-    /// Empty successful responses are returned as [`Value::Null`].
-    pub async fn create_note_raw(&self, payload: &CreateNoteOptions) -> Result<Value> {
-        self.retry_request(|| async {
-            let url = self.base_url.join("notes")?;
-            let response = self.http_client.post(url).json(payload).send().await?;
-            self.handle_value_response(response).await
-        })
-        .await
-    }
-
-    /// Create a new note by sending a raw markdown string as the JSON request body.
     pub async fn create_note_content(&self, content: &str) -> Result<SingleNote> {
         self.retry_request(|| async {
             let url = self.base_url.join("notes")?;
             let response = self.http_client.post(url).json(&content).send().await?;
             self.handle_response(response).await
-        })
-        .await
-    }
-
-    /// Create a note from raw Markdown content and return the raw JSON response.
-    pub async fn create_note_content_raw(&self, content: &str) -> Result<Value> {
-        self.retry_request(|| async {
-            let url = self.base_url.join("notes")?;
-            let response = self.http_client.post(url).json(&content).send().await?;
-            self.handle_value_response(response).await
         })
         .await
     }
@@ -515,34 +438,11 @@ impl ApiClient {
         .await
     }
 
-    /// Create a folder and return the raw JSON response.
-    ///
-    /// HackMD's OpenAPI schema currently leaves the create-folder response shape
-    /// unspecified. Empty successful responses are returned as [`Value::Null`].
-    pub async fn create_folder_raw(&self, payload: &CreateFolderOptions) -> Result<Value> {
-        self.retry_request(|| async {
-            let url = self.folders_url()?;
-            let response = self.http_client.post(url).json(payload).send().await?;
-            self.handle_value_response(response).await
-        })
-        .await
-    }
-
     pub async fn get_folder(&self, folder_id: &str) -> Result<Folder> {
         self.retry_request(|| async {
             let url = self.folder_url(folder_id)?;
             let response = self.http_client.get(url).send().await?;
             self.handle_response(response).await
-        })
-        .await
-    }
-
-    /// Get a folder, returning `None` when HackMD responds with an empty object.
-    pub async fn get_folder_optional(&self, folder_id: &str) -> Result<Option<Folder>> {
-        self.retry_request(|| async {
-            let url = self.folder_url(folder_id)?;
-            let response = self.http_client.get(url).send().await?;
-            self.handle_optional_response(response).await
         })
         .await
     }
@@ -587,7 +487,6 @@ impl ApiClient {
         .await
     }
 
-    // Team API methods
     pub async fn get_teams(&self) -> Result<Vec<Team>> {
         self.retry_request(|| async {
             let url = self.base_url.join("teams")?;
@@ -606,7 +505,6 @@ impl ApiClient {
         .await
     }
 
-    /// Get a single note from a team workspace.
     pub async fn get_team_note(&self, team_path: &str, note_id: &str) -> Result<SingleNote> {
         self.retry_request(|| async {
             let url = self.team_note_url(team_path, note_id)?;
@@ -629,25 +527,6 @@ impl ApiClient {
         .await
     }
 
-    /// Create a team note and return the raw JSON response.
-    ///
-    /// HackMD's OpenAPI schema currently leaves create-note response fields
-    /// unspecified and may return a successful empty body for some statuses.
-    /// Empty successful responses are returned as [`Value::Null`].
-    pub async fn create_team_note_raw(
-        &self,
-        team_path: &str,
-        payload: &CreateNoteOptions,
-    ) -> Result<Value> {
-        self.retry_request(|| async {
-            let url = self.team_notes_url(team_path)?;
-            let response = self.http_client.post(url).json(payload).send().await?;
-            self.handle_value_response(response).await
-        })
-        .await
-    }
-
-    /// Create a new team note by sending a raw markdown string as the JSON request body.
     pub async fn create_team_note_content(
         &self,
         team_path: &str,
@@ -657,20 +536,6 @@ impl ApiClient {
             let url = self.team_notes_url(team_path)?;
             let response = self.http_client.post(url).json(&content).send().await?;
             self.handle_response(response).await
-        })
-        .await
-    }
-
-    /// Create a team note from raw Markdown content and return the raw JSON response.
-    pub async fn create_team_note_content_raw(
-        &self,
-        team_path: &str,
-        content: &str,
-    ) -> Result<Value> {
-        self.retry_request(|| async {
-            let url = self.team_notes_url(team_path)?;
-            let response = self.http_client.post(url).json(&content).send().await?;
-            self.handle_value_response(response).await
         })
         .await
     }
@@ -733,42 +598,11 @@ impl ApiClient {
         .await
     }
 
-    /// Create a team folder and return the raw JSON response.
-    ///
-    /// HackMD's OpenAPI schema currently leaves the create-folder response shape
-    /// unspecified. Empty successful responses are returned as [`Value::Null`].
-    pub async fn create_team_folder_raw(
-        &self,
-        team_path: &str,
-        payload: &CreateFolderOptions,
-    ) -> Result<Value> {
-        self.retry_request(|| async {
-            let url = self.team_folders_url(team_path)?;
-            let response = self.http_client.post(url).json(payload).send().await?;
-            self.handle_value_response(response).await
-        })
-        .await
-    }
-
     pub async fn get_team_folder(&self, team_path: &str, folder_id: &str) -> Result<Folder> {
         self.retry_request(|| async {
             let url = self.team_folder_url(team_path, folder_id)?;
             let response = self.http_client.get(url).send().await?;
             self.handle_response(response).await
-        })
-        .await
-    }
-
-    /// Get a team folder, returning `None` when HackMD responds with an empty object.
-    pub async fn get_team_folder_optional(
-        &self,
-        team_path: &str,
-        folder_id: &str,
-    ) -> Result<Option<Folder>> {
-        self.retry_request(|| async {
-            let url = self.team_folder_url(team_path, folder_id)?;
-            let response = self.http_client.get(url).send().await?;
-            self.handle_optional_response(response).await
         })
         .await
     }
@@ -906,7 +740,6 @@ mod tests {
         assert!(json.contains("Updated content"));
         assert!(json.contains("guest"));
         assert!(json.contains("custom-permalink"));
-        // Should not contain null values for None fields
         assert!(!json.contains("readPermission"));
     }
 
