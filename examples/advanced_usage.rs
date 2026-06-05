@@ -126,7 +126,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                 chrono::Utc::now().timestamp()
             )),
             description: Some("Created by the advanced Rust example".to_string()),
-            icon: Some("📁".to_string()),
+            icon: Some("1F4C1".to_string()),
             color: Some("#4F46E5".to_string()),
             ..Default::default()
         })
